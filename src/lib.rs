@@ -5,6 +5,7 @@ mod platform;
 
 pub use error::MonitorError;
 pub use event::{
-    EventCallback, KeyboardEvent, Monitor, MouseEvent, MouseEventType, WindowEvent, WindowEventType,
+    EventCallback, KeyboardEvent, Monitor, MouseEvent, MouseEventType, Platform, WindowEvent,
+    WindowEventType,
 };
 pub use platform::{detect_changes, initialize_monitor};
