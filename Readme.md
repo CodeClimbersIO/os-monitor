@@ -92,9 +92,9 @@ The monitor achieves cross-platform compatibility through several layers:
 
 ## Development Guidelines
 
-### Adding Platform Support
+### Adding OS Support
 
-To add support for a new platform:
+To add support for a new OS platform:
 
 1. Create new platform-specific module in `src/platform/`
 2. Implement native bindings in `bindings/`
