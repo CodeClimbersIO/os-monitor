@@ -5,7 +5,7 @@ edition = "2021"
 authors = ["Paul Hovley <rphovley@gmail.com>"]
 description = "OS level monitor for tracking window focus and input events"
 license = "MIT"
-repository = "https://github.com/CodeClimbersIO/monitor"
+repository = "https://github.com/CodeClimbersIO/os-monitor"
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
