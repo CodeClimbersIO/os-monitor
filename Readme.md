@@ -47,8 +47,7 @@ See [architecture.md](architecture.md) for more information.
 ## Security and Privacy
 
 - The monitor only tracks event metadata, not content
-- No keystrokes are recorded, only key codes
-- Window titles and application names are captured for context
+- Window titles, application names, and browser urls are captured for context
 - All data processing happens locally
 
 ## Development Guidelines
