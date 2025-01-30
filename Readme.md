@@ -3,29 +3,8 @@
 The monitor is a Rust application that runs on your computer and is responsible for monitoring your activities. It is specifically responsible for monitoring (but not recording) your window, mouse and keyboard activity.
 
 
-## Getting Started
-
-### Prerequisites
-
-- Rust toolchain (install via [rustup](https://rustup.rs/))
-- For macOS:
-  - Xcode Command Line Tools
-  - Accessibility permissions (will be prompted on first run)
-- For Windows:
-  - Visual Studio with C++ development tools
-  - Windows SDK
-
-### Building and Running
-
-1. Clone the repository
-2. Navigate to the monitor directory
-3. Build and run the project:
-   ```bash
-   cargo build
-   cargo run
-   ```
-### Example Usage
-If you want to use this as a library, you can do so by adding the following to your `Cargo.toml`:
+## Example Usage
+Here's an example of how to use the monitor as a library by registering event callbacks:
 
 ```
    let monitor = Monitor::new();
@@ -43,6 +22,21 @@ If you want to use this as a library, you can do so by adding the following to y
 ```
 
 On first run on macOS, you'll need to grant accessibility permissions to the application. This is required to monitor window focus and input events.
+
+### Building and Running
+   ```bash
+   cargo build
+   cargo run
+   ```
+
+### Prerequisites
+
+- Rust toolchain (install via [rustup](https://rustup.rs/))
+- For macOS:
+  - Xcode Command Line Tools
+- For Windows:
+  - Visual Studio with C++ development tools
+  - Windows SDK
 
 ## Architecture
 See [architecture.md](architecture.md) for more information.
