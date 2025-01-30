@@ -20,9 +20,27 @@ The monitor is a Rust application that runs on your computer and is responsible 
 1. Clone the repository
 2. Navigate to the monitor directory
 3. Build the project:   ```bash
-   cargo build   ```
+   cargo build```
 4. Run the monitor:   ```bash
-   cargo run   ```
+   cargo run```
+
+### Example Usage
+If you want to use this as a library, you can do so by adding the following to your `Cargo.toml`:
+
+```
+   let monitor = Monitor::new();
+
+   // Register event callbacks
+   monitor.register_keyboard_callback(Box::new(on_keyboard_events));
+   monitor.register_mouse_callback(Box::new(on_mouse_events));
+   monitor.register_window_callback(Box::new(on_window_event));
+
+   initialize_monitor(Arc::new(monitor)).expect("Failed to initialize monitor");
+   loop {
+      detect_changes().expect("Failed to detect changes");
+      std::thread::sleep(std::time::Duration::from_secs(1));
+   }
+```
 
 On first run on macOS, you'll need to grant accessibility permissions to the application. This is required to monitor window focus and input events.
 
