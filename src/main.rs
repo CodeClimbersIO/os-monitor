@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use monitor::{
+use os_monitor::{
     detect_changes, initialize_monitor, KeyboardEvent, Monitor, MonitorError, MouseEvent,
     WindowEvent,
 };

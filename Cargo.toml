@@ -1,5 +1,5 @@
 [package]
-name = "monitor"
+name = "os-monitor"
 version = "0.1.0"
 edition = "2021"
 authors = ["Paul Hovley <rphovley@gmail.com>"]

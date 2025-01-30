@@ -46,17 +46,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "433bfe06b8c75da9b2e3fbea6e5329ff87748f0b144ef75306e674c3f6f7c13f"
 
 [[package]]
-name = "monitor"
-version = "0.1.0"
-dependencies = [
- "cc",
- "ctrlc",
- "once_cell",
- "serde",
- "thiserror",
-]
-
-[[package]]
 name = "nix"
 version = "0.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -73,6 +62,17 @@ name = "once_cell"
 version = "1.20.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1261fe7e33c73b354eab43b1273a57c8f967d0391e80353e51f764ac02cf6775"
+
+[[package]]
+name = "os-monitor"
+version = "0.1.0"
+dependencies = [
+ "cc",
+ "ctrlc",
+ "once_cell",
+ "serde",
+ "thiserror",
+]
 
 [[package]]
 name = "proc-macro2"
