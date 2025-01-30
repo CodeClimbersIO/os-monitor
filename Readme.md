@@ -5,9 +5,9 @@ Architecture supports multiple platforms.
 
 Implemented platforms:
 
-[x] macOS  
-[ ] Windows  
-[ ] Linux  
+- [x] macOS
+- [ ] Windows
+- [ ] Linux
 
 ## Example Usage
 Here's an example of how to use the monitor as a library by registering event callbacks:
