@@ -19,11 +19,11 @@ The monitor is a Rust application that runs on your computer and is responsible 
 
 1. Clone the repository
 2. Navigate to the monitor directory
-3. Build the project:   ```bash
-   cargo build```
-4. Run the monitor:   ```bash
-   cargo run```
-
+3. Build and run the project:
+   ```bash
+   cargo build
+   cargo run
+   ```
 ### Example Usage
 If you want to use this as a library, you can do so by adding the following to your `Cargo.toml`:
 
