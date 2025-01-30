@@ -1,4 +1,4 @@
-use crate::event::WindowEvent;
+use crate::event::{Platform, WindowEvent};
 use crate::{bindings, event::EventCallback, Monitor};
 use crate::{KeyboardEvent, MonitorError, MouseEvent, MouseEventType};
 use once_cell::sync::Lazy;
@@ -49,6 +49,7 @@ fn detect_focused_window() {
                         window_title: title.to_string(),
                         app_name: app_name.to_string(),
                         url: url,
+                        platform: Platform::Mac,
                     });
                 }
             }
@@ -64,6 +65,7 @@ extern "C" fn mouse_event_callback(x: f64, y: f64, event_type: i32, scroll_delta
         y,
         event_type: MouseEventType::try_from(event_type).unwrap(),
         scroll_delta,
+        platform: Platform::Mac,
     };
     // Store event in vector
     let mut events = MOUSE_EVENTS.lock().unwrap();
@@ -71,7 +73,10 @@ extern "C" fn mouse_event_callback(x: f64, y: f64, event_type: i32, scroll_delta
 }
 
 extern "C" fn keyboard_event_callback(key_code: i32) {
-    let keyboard_event = KeyboardEvent { key_code };
+    let keyboard_event = KeyboardEvent {
+        key_code,
+        platform: Platform::Mac,
+    };
     // Store event in vector
     let mut events = KEYBOARD_EVENTS.lock().unwrap();
     events.push(keyboard_event);

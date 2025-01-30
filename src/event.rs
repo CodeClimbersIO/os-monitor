@@ -2,6 +2,13 @@ use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub enum Platform {
+    Mac,
+    Windows,
+    Linux,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum MouseEventType {
     Move,
     LeftDown,
@@ -43,11 +50,13 @@ pub struct MouseEvent {
     pub y: f64,
     pub event_type: MouseEventType,
     pub scroll_delta: i32,
+    pub platform: Platform,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KeyboardEvent {
     pub key_code: i32,
+    pub platform: Platform,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -55,6 +64,7 @@ pub struct WindowEvent {
     pub app_name: String,
     pub window_title: String,
     pub url: Option<String>,
+    pub platform: Platform,
 }
 
 pub trait EventCallback: Send + Sync {
