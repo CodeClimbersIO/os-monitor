@@ -23,25 +23,26 @@ fn main() {
                 .join("macos")
                 .join("Monitor.h"),
         ];
-        let output_dir = manifest_dir.join("bindings").join("macos");
+        let out_dir = std::env::var("OUT_DIR").unwrap();
+        let out_path = PathBuf::from(out_dir);
 
         println!("cargo:info=Source files: {:?}", source_files);
-        println!("cargo:info=Output directory: {}", output_dir.display());
+        println!("cargo:info=Output directory: {}", out_path.display());
 
         // Build the Objective-C code using clang
         println!("cargo:info=Compiling Objective-C code...");
         let status = std::process::Command::new("clang")
             .args(&[
-                "-fobjc-arc", // Enable ARC
-                "-fmodules",  // Enable modules
+                "-fobjc-arc",
+                "-fmodules",
                 "-framework",
-                "Cocoa",                           // Link Cocoa framework
-                "-dynamiclib",                     // Create dynamic library
-                source_files[0].to_str().unwrap(), // Monitor.m
+                "Cocoa",
+                "-dynamiclib",
+                source_files[0].to_str().unwrap(),
                 "-I",
-                source_files[1].parent().unwrap().to_str().unwrap(), // Include directory for Monitor.h
+                source_files[1].parent().unwrap().to_str().unwrap(),
                 "-o",
-                output_dir.join("libMacMonitor.dylib").to_str().unwrap(),
+                out_path.join("libMacMonitor.dylib").to_str().unwrap(),
             ])
             .status()
             .expect("Failed to execute clang command");
@@ -51,7 +52,7 @@ fn main() {
         }
 
         println!("cargo:info=Setting up library paths...");
-        println!("cargo:rustc-link-search=native={}", output_dir.display());
+        println!("cargo:rustc-link-search=native={}", out_path.display());
         println!("cargo:rustc-link-lib=MacMonitor");
 
         // Link against required frameworks
