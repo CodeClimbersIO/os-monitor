@@ -1,24 +1,25 @@
 use std::sync::Arc;
 
 use os_monitor::{
-    detect_changes, initialize_monitor, KeyboardEvent, Monitor, MonitorError, MouseEvent,
-    WindowEvent,
+    detect_changes, enable_log, initialize_monitor, log, KeyboardEvent, Monitor, MonitorError,
+    MouseEvent, WindowEvent,
 };
 
 fn on_keyboard_events(events: Vec<KeyboardEvent>) {
-    println!("Keyboard event: {:?}", events);
+    log(&format!("Keyboard event: {:?}", events));
 }
 
 fn on_mouse_events(events: Vec<MouseEvent>) {
-    println!("Mouse event: {:?}", events);
+    log(&format!("Mouse event: {:?}", events));
 }
 
 fn on_window_event(event: WindowEvent) {
-    println!("Window event: {:?}", event);
+    log(&format!("Window event: {:?}", event));
 }
 
 fn main() -> Result<(), MonitorError> {
-    println!("main.rs starting");
+    enable_log();
+    log("main.rs starting");
 
     let monitor = Monitor::new();
 
