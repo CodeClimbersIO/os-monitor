@@ -136,7 +136,6 @@ WindowTitle* detect_focused_window(void) {
         NSLog(@"Failed to create accessibility element for application");
         return nil;
     }
-    
     // Get focused window
     AXUIElementRef focusedWindow;
     AXError result = AXUIElementCopyAttributeValue(
@@ -144,7 +143,6 @@ WindowTitle* detect_focused_window(void) {
         kAXFocusedWindowAttribute,
         (CFTypeRef *)&focusedWindow
     );
-    
     if (result != kAXErrorSuccess) {
         NSLog(@"Debug - Raw error code: %d, kAXErrorCannotComplete: %d", 
             (int)result, (int)kAXErrorCannotComplete);
@@ -161,7 +159,6 @@ WindowTitle* detect_focused_window(void) {
         kAXTitleAttribute,
         &windowTitle
     );
-
     // Get window URL
     NSString *url = nil;
     if (isSupportedBrowser(bundleId)) {
@@ -176,15 +173,16 @@ WindowTitle* detect_focused_window(void) {
     if (result == kAXErrorSuccess) {
         NSString *title = (__bridge_transfer NSString *)windowTitle;
         NSString *applicationName = frontmostApp.localizedName; 
-        NSString *bundleId = frontmostApp.bundleIdentifier;
         WindowTitle* windowTitleStruct = malloc(sizeof(WindowTitle));
         
+        printf("Have a bundleId %s\n", [bundleId UTF8String]);
+        printf("Have a title %s\n", [title UTF8String]);
         // Create copies of all strings
         windowTitleStruct->window_title = strdup([title UTF8String]);
         windowTitleStruct->app_name = strdup([applicationName UTF8String]);
-        windowTitleStruct->bundle_id = strdup([bundleId UTF8String]);
+        windowTitleStruct->bundle_id = bundleId ? strdup([bundleId UTF8String]) : NULL;
         windowTitleStruct->url = url ? strdup([url UTF8String]) : NULL;
-        
+
         // Clean up AX resources
         CFRelease(focusedWindow);
         CFRelease(appRef);

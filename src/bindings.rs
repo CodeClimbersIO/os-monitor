@@ -24,6 +24,21 @@ impl RawWindowTitle {
             }
         }
     }
+
+    pub fn get_bundle_id(&self) -> Option<String> {
+        if self.bundle_id.is_null() {
+            None
+        } else {
+            unsafe {
+                Some(
+                    std::ffi::CStr::from_ptr(self.bundle_id)
+                        .to_str()
+                        .ok()?
+                        .to_string(),
+                )
+            }
+        }
+    }
 }
 
 #[cfg(target_os = "macos")]

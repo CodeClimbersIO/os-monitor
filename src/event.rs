@@ -63,7 +63,7 @@ pub struct KeyboardEvent {
 pub struct WindowEvent {
     pub app_name: String,
     pub window_title: String,
-    pub bundle_id: String,
+    pub bundle_id: Option<String>,
     pub url: Option<String>,
     pub platform: Platform,
 }

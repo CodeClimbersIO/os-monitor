@@ -31,6 +31,8 @@ fn detect_focused_window() {
             return;
         }
 
+        log::info!("  detect_focused_window window_title: {:?}", window_title);
+
         let title = std::ffi::CStr::from_ptr((*window_title).window_title)
             .to_str()
             .unwrap();
@@ -38,12 +40,11 @@ fn detect_focused_window() {
         let app_name = std::ffi::CStr::from_ptr((*window_title).app_name)
             .to_str()
             .unwrap();
-
-        let bundle_id = std::ffi::CStr::from_ptr((*window_title).bundle_id)
-            .to_str()
-            .unwrap();
-
+        let bundle_id = (*window_title).get_bundle_id();
         let url = (*window_title).get_url();
+
+        log::info!("  detect_focused_window bundle_id: {:?}", bundle_id);
+        log::info!("  detect_focused_window url: {:?}", url);
 
         {
             log::info!("  detect_focused_window lock");
@@ -61,7 +62,7 @@ fn detect_focused_window() {
                         window_title: title.to_string(),
                         app_name: app_name.to_string(),
                         url: url,
-                        bundle_id: bundle_id.to_string(),
+                        bundle_id: bundle_id,
                         platform: Platform::Mac,
                     });
                     log::info!("      detect_focused_window callback Some end");
