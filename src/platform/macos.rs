@@ -1,5 +1,4 @@
 use crate::event::{Platform, WindowEvent};
-use crate::utils::log::log;
 use crate::{bindings, event::EventCallback, Monitor};
 use crate::{KeyboardEvent, MonitorError, MouseEvent, MouseEventType};
 use once_cell::sync::Lazy;
@@ -25,11 +24,11 @@ static FOCUSED_WINDOW: Mutex<WindowTitle> = Mutex::new(WindowTitle {
 
 fn detect_focused_window() {
     unsafe {
-        log("detect_focused_window start");
+        log::info!("detect_focused_window start");
         let window_title: *const bindings::RawWindowTitle = bindings::detect_focused_window();
-        log("detect_focused_window end");
+        log::info!("detect_focused_window end");
         if window_title.is_null() {
-            log("  detect_focused_window null");
+            log::info!("  detect_focused_window null");
             return;
         }
 
@@ -43,29 +42,29 @@ fn detect_focused_window() {
         let url = (*window_title).get_url();
 
         {
-            log("  detect_focused_window lock");
+            log::info!("  detect_focused_window lock");
             let mut window_title_guard = FOCUSED_WINDOW.lock().unwrap();
-            log("  detect_focused_window lock end");
+            log::info!("  detect_focused_window lock end");
             let monitor_guard = MONITOR.lock().unwrap();
-            log("  detect_focused_window callback_guard");
+            log::info!("  detect_focused_window callback_guard");
             if app_name.to_string() != window_title_guard.app_name
                 || title.to_string() != window_title_guard.title
             {
-                log("    detect_focused_window callback");
+                log::info!("    detect_focused_window callback");
                 if let Some(monitor) = monitor_guard.as_ref() {
-                    log("      detect_focused_window callback Some");
+                    log::info!("      detect_focused_window callback Some");
                     monitor.on_window_event(WindowEvent {
                         window_title: title.to_string(),
                         app_name: app_name.to_string(),
                         url: url,
                         platform: Platform::Mac,
                     });
-                    log("      detect_focused_window callback Some end");
+                    log::info!("      detect_focused_window callback Some end");
                 }
             }
             window_title_guard.title = title.to_string();
             window_title_guard.app_name = app_name.to_string();
-            log("  detect_focused_window lock end");
+            log::info!("  detect_focused_window lock end");
         }
     }
 }
@@ -119,23 +118,23 @@ pub(crate) fn platform_initialize_monitor(monitor: Arc<Monitor>) -> Result<(), M
 }
 
 pub(crate) fn platform_detect_changes() -> Result<(), MonitorError> {
-    log("platform_detect_changes start");
+    log::info!("platform_detect_changes start");
     unsafe {
         bindings::process_events();
     }
-    log("processed events");
+    log::info!("processed events");
     detect_focused_window();
-    log("detected focused window");
+    log::info!("detected focused window");
 
     let mut last_send = LAST_SEND.lock().unwrap();
-    log(&format!("last_send: {:?}", last_send.elapsed()));
+    log::info!("last_send: {:?}", last_send.elapsed());
 
     if last_send.elapsed() >= Duration::from_secs(30) {
-        log("sending buffered events");
+        log::info!("sending buffered events");
         send_buffered_events();
-        log("sent buffered events");
+        log::info!("sent buffered events");
         *last_send = Instant::now();
     }
-    log("platform_detect_changes end");
+    log::info!("platform_detect_changes end");
     Ok(())
 }
