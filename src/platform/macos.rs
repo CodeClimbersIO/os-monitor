@@ -26,16 +26,20 @@ fn detect_focused_window() {
     unsafe {
         log::info!("detect_focused_window start");
         let window_title: *const bindings::RawWindowTitle = bindings::detect_focused_window();
-        log::info!("detect_focused_window end");
         if window_title.is_null() {
-            log::info!("  detect_focused_window null");
+            log::warn!("  detect_focused_window null");
             return;
         }
 
         let title = std::ffi::CStr::from_ptr((*window_title).window_title)
             .to_str()
             .unwrap();
+
         let app_name = std::ffi::CStr::from_ptr((*window_title).app_name)
+            .to_str()
+            .unwrap();
+
+        let bundle_id = std::ffi::CStr::from_ptr((*window_title).bundle_id)
             .to_str()
             .unwrap();
 
@@ -57,6 +61,7 @@ fn detect_focused_window() {
                         window_title: title.to_string(),
                         app_name: app_name.to_string(),
                         url: url,
+                        bundle_id: bundle_id.to_string(),
                         platform: Platform::Mac,
                     });
                     log::info!("      detect_focused_window callback Some end");

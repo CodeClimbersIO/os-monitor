@@ -162,6 +162,7 @@ WindowTitle* detect_focused_window(void) {
         &windowTitle
     );
 
+    // Get window URL
     NSString *url = nil;
     if (isSupportedBrowser(bundleId)) {
         AXUIElementRef urlElement = findUrlElement(focusedWindow);
@@ -175,12 +176,16 @@ WindowTitle* detect_focused_window(void) {
     if (result == kAXErrorSuccess) {
         NSString *title = (__bridge_transfer NSString *)windowTitle;
         NSString *applicationName = frontmostApp.localizedName; 
+        NSString *bundleId = frontmostApp.bundleIdentifier;
         WindowTitle* windowTitleStruct = malloc(sizeof(WindowTitle));
+        
+        // Create copies of all strings
         windowTitleStruct->window_title = strdup([title UTF8String]);
         windowTitleStruct->app_name = strdup([applicationName UTF8String]);
+        windowTitleStruct->bundle_id = strdup([bundleId UTF8String]);
         windowTitleStruct->url = url ? strdup([url UTF8String]) : NULL;
         
-        // Clean up
+        // Clean up AX resources
         CFRelease(focusedWindow);
         CFRelease(appRef);
         

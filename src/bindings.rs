@@ -4,7 +4,8 @@ use std::ffi::c_char;
 pub struct RawWindowTitle {
     pub app_name: *const c_char,
     pub window_title: *const c_char,
-    url: *const c_char,
+    pub bundle_id: *const c_char,
+    pub url: *const c_char,
 }
 
 impl RawWindowTitle {
