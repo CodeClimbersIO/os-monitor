@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
 use os_monitor::{
-    detect_changes, initialize_monitor, KeyboardEvent, Monitor, MonitorError, MouseEvent,
+    detect_changes, has_accessibility_permissions, initialize_monitor,
+    request_accessibility_permissions, KeyboardEvent, Monitor, MonitorError, MouseEvent,
     WindowEvent,
 };
 
@@ -21,6 +22,13 @@ fn main() -> Result<(), MonitorError> {
     env_logger::init();
     log::info!("main.rs starting");
     let monitor = Monitor::new();
+
+    let has_permissions = has_accessibility_permissions();
+    println!("has_permissions: {}", has_permissions);
+    if !has_permissions {
+        let request_permissions = request_accessibility_permissions();
+        println!("request_permissions: {}", request_permissions);
+    }
 
     monitor.register_keyboard_callback(Box::new(on_keyboard_events));
     monitor.register_mouse_callback(Box::new(on_mouse_events));

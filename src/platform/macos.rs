@@ -144,3 +144,11 @@ pub(crate) fn platform_detect_changes() -> Result<(), MonitorError> {
     log::info!("platform_detect_changes end");
     Ok(())
 }
+
+pub(crate) fn platform_has_accessibility_permissions() -> bool {
+    unsafe { bindings::has_accessibility_permissions() }
+}
+
+pub(crate) fn platform_request_accessibility_permissions() -> bool {
+    unsafe { bindings::request_accessibility_permissions() }
+}

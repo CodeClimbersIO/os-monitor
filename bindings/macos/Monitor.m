@@ -97,11 +97,14 @@ AXUIElementRef findUrlElement(AXUIElementRef element) {
     return NULL;
 }
 
-BOOL checkAccessibilityPermissions(void) {
+BOOL has_accessibility_permissions(void) {
+    NSDictionary *options = @{(__bridge id)kAXTrustedCheckOptionPrompt: @NO};
+    return AXIsProcessTrustedWithOptions((__bridge CFDictionaryRef)options);
+}
+
+BOOL request_accessibility_permissions(void) {
     NSDictionary *options = @{(__bridge id)kAXTrustedCheckOptionPrompt: @YES};
-    BOOL trusted = AXIsProcessTrustedWithOptions((__bridge CFDictionaryRef)options);
-    
-    return trusted;
+    return AXIsProcessTrustedWithOptions((__bridge CFDictionaryRef)options);
 }
 
 BOOL isSupportedBrowser(NSString *bundleId) {
@@ -115,7 +118,7 @@ BOOL isSupportedBrowser(NSString *bundleId) {
 }
 
 WindowTitle* detect_focused_window(void) {
-    if (!checkAccessibilityPermissions()) {
+    if (!has_accessibility_permissions()) {
         return nil;
     }
 

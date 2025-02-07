@@ -34,3 +34,5 @@ WindowTitle* detect_focused_window(void);
 void initialize(void);
 void process_events(void);
 void cleanup(void);
+BOOL has_accessibility_permissions(void);
+BOOL request_accessibility_permissions(void);

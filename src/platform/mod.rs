@@ -18,3 +18,11 @@ pub fn detect_changes() -> Result<(), MonitorError> {
 pub fn initialize_monitor(monitor: Arc<Monitor>) -> Result<(), MonitorError> {
     platform_initialize_monitor(monitor)
 }
+
+pub fn has_accessibility_permissions() -> bool {
+    platform_has_accessibility_permissions()
+}
+
+pub fn request_accessibility_permissions() -> bool {
+    platform_request_accessibility_permissions()
+}

@@ -48,6 +48,8 @@ extern "C" {
     pub fn start_mouse_monitoring(callback: extern "C" fn(f64, f64, i32, i32));
     pub fn start_keyboard_monitoring(callback: extern "C" fn(i32));
     pub fn process_events();
+    pub fn has_accessibility_permissions() -> bool;
+    pub fn request_accessibility_permissions() -> bool;
 }
 
 #[cfg(target_os = "windows")]
