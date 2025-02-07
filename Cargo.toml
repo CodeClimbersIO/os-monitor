@@ -1,6 +1,6 @@
 [package]
 name = "os-monitor"
-version = "0.2.1"
+version = "0.2.2"
 edition = "2021"
 authors = ["Paul Hovley <rphovley@gmail.com>"]
 description = "OS level monitor for tracking window focus and input events"
