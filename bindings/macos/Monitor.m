@@ -342,25 +342,35 @@ void cleanup(void) {
     }
 }
 
-const char* get_app_icon_path(const char* bundle_id) {
+const char* get_app_icon_data(const char* bundle_id) {
     if (!bundle_id) return NULL;
-    NSString *bundleIdStr = [NSString stringWithUTF8String:bundle_id];
-    NSWorkspace *workspace = [NSWorkspace sharedWorkspace];
-    NSString *path = [workspace URLForApplicationWithBundleIdentifier:bundleIdStr].path;
+    
+    @autoreleasepool {
+        NSString *bundleIdStr = [NSString stringWithUTF8String:bundle_id];
+        NSWorkspace *workspace = [NSWorkspace sharedWorkspace];
+        
+        // Get the icon for the application
+        NSImage *icon = [workspace iconForFile:[[workspace URLForApplicationWithBundleIdentifier:bundleIdStr] path]];
+        if (!icon) return NULL;
+        
+        // Convert to PNG data
+        NSBitmapImageRep *imageRep = [NSBitmapImageRep imageRepWithData:[icon TIFFRepresentation]];
+        NSData *pngData = [imageRep representationUsingType:NSBitmapImageFileTypePNG properties:@{}];
+        if (!pngData) return NULL;
+        
+        // Convert to base64
+        NSString *base64String = [pngData base64EncodedStringWithOptions:0];
+        NSString *dataUrl = [NSString stringWithFormat:@"data:image/png;base64,%@", base64String];
+        
+        // Copy the string to a new buffer that will be freed by the caller
+        const char *utf8String = [dataUrl UTF8String];
+        char *result = strdup(utf8String);
+        return result;
+    }
+}
 
-    if (!path) return NULL;
-    
-    NSBundle *bundle = [NSBundle bundleWithPath:path];
-    if (!bundle) return NULL;
-    
-    NSString *iconPath = [bundle pathForResource:[bundle objectForInfoDictionaryKey:@"CFBundleIconFile"] 
-                                            ofType:@"icns"];
-    if (!iconPath) {
-        iconPath = [bundle pathForResource:@"AppIcon" ofType:@"icns"];
+void free_icon_data(const char* data) {
+    if (data) {
+        free((void*)data);
     }
-    if (!iconPath) {
-        iconPath = [path stringByAppendingPathComponent:@"Contents/Resources/AppIcon.icns"];
-    }
-    // Use UTF8String directly, which returns an autoreleased string
-    return iconPath ? [iconPath UTF8String] : NULL;
 }

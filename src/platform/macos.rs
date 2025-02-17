@@ -3,7 +3,6 @@ use crate::{bindings, event::EventCallback, Monitor};
 use crate::{KeyboardEvent, MonitorError, MouseEvent, MouseEventType};
 use once_cell::sync::Lazy;
 use std::ffi::{CStr, CString};
-use std::os::raw::c_char;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -155,18 +154,16 @@ pub(crate) fn platform_request_accessibility_permissions() -> bool {
     unsafe { bindings::request_accessibility_permissions() }
 }
 
-extern "C" {
-    fn get_app_icon_path(bundle_id: *const c_char) -> *const c_char;
-}
-
-pub(crate) fn platform_get_application_icon_path(bundle_id: &str) -> Option<String> {
+pub(crate) fn platform_get_application_icon_data(bundle_id: &str) -> Option<String> {
     unsafe {
         let c_bundle_id = CString::new(bundle_id).ok()?;
-        let c_path = get_app_icon_path(c_bundle_id.as_ptr());
-        if c_path.is_null() {
+        let c_data = bindings::get_app_icon_data(c_bundle_id.as_ptr());
+        if c_data.is_null() {
             return None;
         }
-        let path = CStr::from_ptr(c_path).to_str().ok()?.to_owned();
-        Some(path)
+
+        let data = CStr::from_ptr(c_data).to_str().ok()?.to_owned();
+        bindings::free_icon_data(c_data);
+        Some(data)
     }
 }

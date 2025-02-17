@@ -27,6 +27,6 @@ pub fn request_accessibility_permissions() -> bool {
     platform_request_accessibility_permissions()
 }
 
-pub fn get_application_icon_path(bundle_id: &str) -> Option<String> {
-    platform_get_application_icon_path(bundle_id)
+pub fn get_application_icon_data(bundle_id: &str) -> Option<String> {
+    platform_get_application_icon_data(bundle_id)
 }

@@ -36,4 +36,5 @@ void process_events(void);
 void cleanup(void);
 BOOL has_accessibility_permissions(void);
 BOOL request_accessibility_permissions(void);
-const char* get_app_icon_path(const char* bundle_id);
+const char* get_app_icon_data(const char* bundle_id);
+void free_icon_data(const char* data);

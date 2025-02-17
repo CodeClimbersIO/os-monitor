@@ -50,7 +50,8 @@ extern "C" {
     pub fn process_events();
     pub fn has_accessibility_permissions() -> bool;
     pub fn request_accessibility_permissions() -> bool;
-    pub fn get_app_icon_path(bundle_id: *const c_char) -> *const c_char;
+    pub fn get_app_icon_data(bundle_id: *const c_char) -> *const c_char;
+    pub fn free_icon_data(data: *const c_char);
 }
 
 #[cfg(target_os = "windows")]
