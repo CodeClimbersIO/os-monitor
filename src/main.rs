@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use os_monitor::{
-    detect_changes, has_accessibility_permissions, initialize_monitor,
+    detect_changes, get_application_icon_path, has_accessibility_permissions, initialize_monitor,
     request_accessibility_permissions, KeyboardEvent, Monitor, MonitorError, MouseEvent,
     WindowEvent,
 };
@@ -29,6 +29,9 @@ fn main() -> Result<(), MonitorError> {
         let request_permissions = request_accessibility_permissions();
         println!("request_permissions: {}", request_permissions);
     }
+
+    let icon_path = get_application_icon_path("md.obsidian");
+    println!("icon_path: {}", icon_path.unwrap());
 
     monitor.register_keyboard_callback(Box::new(on_keyboard_events));
     monitor.register_mouse_callback(Box::new(on_mouse_events));

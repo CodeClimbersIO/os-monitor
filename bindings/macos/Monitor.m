@@ -341,3 +341,26 @@ void cleanup(void) {
         monitorHolder = nil;
     }
 }
+
+const char* get_app_icon_path(const char* bundle_id) {
+    if (!bundle_id) return NULL;
+    NSString *bundleIdStr = [NSString stringWithUTF8String:bundle_id];
+    NSWorkspace *workspace = [NSWorkspace sharedWorkspace];
+    NSString *path = [workspace URLForApplicationWithBundleIdentifier:bundleIdStr].path;
+
+    if (!path) return NULL;
+    
+    NSBundle *bundle = [NSBundle bundleWithPath:path];
+    if (!bundle) return NULL;
+    
+    NSString *iconPath = [bundle pathForResource:[bundle objectForInfoDictionaryKey:@"CFBundleIconFile"] 
+                                            ofType:@"icns"];
+    if (!iconPath) {
+        iconPath = [bundle pathForResource:@"AppIcon" ofType:@"icns"];
+    }
+    if (!iconPath) {
+        iconPath = [path stringByAppendingPathComponent:@"Contents/Resources/AppIcon.icns"];
+    }
+    // Use UTF8String directly, which returns an autoreleased string
+    return iconPath ? [iconPath UTF8String] : NULL;
+}
