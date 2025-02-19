@@ -271,19 +271,16 @@ void start_monitoring(MouseEventCallback mouseCallback, KeyboardEventCallback ke
                            CGEventMaskBit(kCGEventScrollWheel) |
                            CGEventMaskBit(kCGEventKeyDown) |
                            CGEventMaskBit(kCGEventKeyUp);
-    printf("Event mask: %d\n", eventMask);
     CFMachPortRef _eventTap = CGEventTapCreate(kCGSessionEventTap,
                                 kCGHeadInsertEventTap,
                                 kCGEventTapOptionDefault,
                                 eventMask,
                                 eventCallback,
                                 NULL);
-    printf("Event tap: %p\n", _eventTap);
     if (!_eventTap) {
         NSLog(@"Failed to create event tap");
         return;
     }
-    printf("Event tap created\n");
     CFRunLoopSourceRef _runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, _eventTap, 0);
     CFRunLoopAddSource(CFRunLoopGetCurrent(), _runLoopSource, kCFRunLoopCommonModes);
     CGEventTapEnable(_eventTap, true);
