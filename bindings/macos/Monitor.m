@@ -8,6 +8,7 @@
 @interface MonitorHolder : NSObject
 @property (nonatomic, strong) NSArray<id> *monitors;
 @property (nonatomic, assign) MouseEventCallback mouseCallback;
+@property (nonatomic, assign) KeyboardEventCallback keyboardCallback;
 @property (nonatomic, assign) WindowEventCallback windowCallback;
 @end
 
@@ -178,8 +179,6 @@ WindowTitle* detect_focused_window(void) {
         NSString *applicationName = frontmostApp.localizedName; 
         WindowTitle* windowTitleStruct = malloc(sizeof(WindowTitle));
         
-        printf("Have a bundleId %s\n", [bundleId UTF8String]);
-        printf("Have a title %s\n", [title UTF8String]);
         // Create copies of all strings
         windowTitleStruct->window_title = strdup([title UTF8String]);
         windowTitleStruct->app_name = strdup([applicationName UTF8String]);
@@ -206,140 +205,90 @@ WindowTitle* detect_focused_window(void) {
     return nil;
 }
 
-void start_mouse_monitoring(MouseEventCallback callback) {
+CGEventRef eventCallback(CGEventTapProxy proxy, CGEventType type, CGEventRef event, void *refcon) {
+    CGPoint location = CGEventGetLocation(event);
+    switch (type) {
+        case kCGEventKeyDown:
+            if (monitorHolder.keyboardCallback) {
+                CGKeyCode keyCode = (CGKeyCode)CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode);
+                monitorHolder.keyboardCallback((int32_t)keyCode);
+            }
+            break;
+            
+        case kCGEventLeftMouseDown:
+            if (monitorHolder.mouseCallback) {
+                monitorHolder.mouseCallback(location.x, location.y, MouseEventTypeLeftDown, 0);
+            }
+            break;
+            
+        case kCGEventLeftMouseUp:
+            if (monitorHolder.mouseCallback) {
+                monitorHolder.mouseCallback(location.x, location.y, MouseEventTypeLeftUp, 0);
+            }
+            break;
+            
+        case kCGEventRightMouseDown:
+            if (monitorHolder.mouseCallback) {
+                monitorHolder.mouseCallback(location.x, location.y, MouseEventTypeRightDown, 0);
+            }
+            break;
+            
+        case kCGEventRightMouseUp:
+            if (monitorHolder.mouseCallback) {
+                monitorHolder.mouseCallback(location.x, location.y, MouseEventTypeRightUp, 0);
+            }
+            break;
+            
+        case kCGEventMouseMoved:
+            if (monitorHolder.mouseCallback) {
+                monitorHolder.mouseCallback(location.x, location.y, MouseEventTypeMove, 0);
+            }
+            break;
+            
+        case kCGEventScrollWheel:
+            if (monitorHolder.mouseCallback) {
+                int32_t scrollDelta = (int32_t)CGEventGetIntegerValueField(event, kCGScrollWheelEventDeltaAxis1);
+                monitorHolder.mouseCallback(location.x, location.y, MouseEventTypeScroll, scrollDelta);
+            }
+            break;
+    }
+    
+    return event;
+}
+
+void start_monitoring(MouseEventCallback mouseCallback, KeyboardEventCallback keyboardCallback) {
     if (!monitorHolder) {
         monitorHolder = [[MonitorHolder alloc] init];
     }
-    monitorHolder.mouseCallback = callback;
-    
-    NSMutableArray *monitors = [NSMutableArray array];
-    
-    // Mouse move monitor
-    id moveMonitor = [NSEvent addGlobalMonitorForEventsMatchingMask:NSEventMaskMouseMoved 
-                                                          handler:^(NSEvent *event) {
-        callback(event.locationInWindow.x,
-                event.locationInWindow.y,
-                MouseEventTypeMove,
-                0);
-    }];
-    if (moveMonitor) {
-        [monitors addObject:moveMonitor];
+    monitorHolder.mouseCallback = mouseCallback;
+    monitorHolder.keyboardCallback = keyboardCallback;
+    // Create event tap for mouse clicks, movements, and key events
+    CGEventMask eventMask = CGEventMaskBit(kCGEventLeftMouseDown) | 
+                           CGEventMaskBit(kCGEventLeftMouseUp) |
+                           CGEventMaskBit(kCGEventRightMouseDown) |
+                           CGEventMaskBit(kCGEventRightMouseUp) |
+                           CGEventMaskBit(kCGEventMouseMoved) |
+                           CGEventMaskBit(kCGEventScrollWheel) |
+                           CGEventMaskBit(kCGEventKeyDown) |
+                           CGEventMaskBit(kCGEventKeyUp);
+    printf("Event mask: %d\n", eventMask);
+    CFMachPortRef _eventTap = CGEventTapCreate(kCGSessionEventTap,
+                                kCGHeadInsertEventTap,
+                                kCGEventTapOptionDefault,
+                                eventMask,
+                                eventCallback,
+                                NULL);
+    printf("Event tap: %p\n", _eventTap);
+    if (!_eventTap) {
+        NSLog(@"Failed to create event tap");
+        return;
     }
-    
-    // Click monitor
-    NSEventMask clickMask = NSEventMaskLeftMouseDown | NSEventMaskLeftMouseUp |
-                           NSEventMaskRightMouseDown | NSEventMaskRightMouseUp |
-                           NSEventMaskOtherMouseDown | NSEventMaskOtherMouseUp;
-    id clickMonitor = [NSEvent addGlobalMonitorForEventsMatchingMask:clickMask
-                                                           handler:^(NSEvent *event) {
-        MouseEventType eventType;
-        switch (event.type) {
-            case NSEventTypeLeftMouseDown:
-                eventType = MouseEventTypeLeftDown;
-                break;
-            case NSEventTypeLeftMouseUp:
-                eventType = MouseEventTypeLeftUp;
-                break;
-            case NSEventTypeRightMouseDown:
-                eventType = MouseEventTypeRightDown;
-                break;
-            case NSEventTypeRightMouseUp:
-                eventType = MouseEventTypeRightUp;
-                break;
-            case NSEventTypeOtherMouseDown:
-                eventType = MouseEventTypeMiddleDown;
-                break;
-            case NSEventTypeOtherMouseUp:
-                eventType = MouseEventTypeMiddleUp;
-                break;
-            default:
-                return;
-        }
-        callback(event.locationInWindow.x,
-                event.locationInWindow.y,
-                eventType,
-                0);
-    }];
-    if (clickMonitor) {
-        [monitors addObject:clickMonitor];
-    }
-    
-    // Scroll monitor
-    id scrollMonitor = [NSEvent addGlobalMonitorForEventsMatchingMask:NSEventMaskScrollWheel
-                                                            handler:^(NSEvent *event) {
-        callback(event.locationInWindow.x,
-                event.locationInWindow.y,
-                MouseEventTypeScroll,
-                (int32_t)event.scrollingDeltaY);
-    }];
-    if (scrollMonitor) {
-        [monitors addObject:scrollMonitor];
-    }
-    monitorHolder.monitors = monitors;
-}
+    printf("Event tap created\n");
+    CFRunLoopSourceRef _runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, _eventTap, 0);
+    CFRunLoopAddSource(CFRunLoopGetCurrent(), _runLoopSource, kCFRunLoopCommonModes);
+    CGEventTapEnable(_eventTap, true);
 
-void start_keyboard_monitoring(KeyboardEventCallback callback) {
-    if (!monitorHolder) {
-        monitorHolder = [[MonitorHolder alloc] init];
-    }
-    
-    id keyboardMonitor = [NSEvent addGlobalMonitorForEventsMatchingMask:NSEventMaskKeyDown
-                                                               handler:^(NSEvent *event) {
-        callback((int32_t)event.keyCode);
-    }];
-    
-    if (keyboardMonitor) {
-        if (!monitorHolder.monitors) {
-            monitorHolder.monitors = @[];
-        }
-        monitorHolder.monitors = [monitorHolder.monitors arrayByAddingObject:keyboardMonitor];
-    }
-}
-
-void initialize(void) {
-    printf("Initializing\n");
-    [[NSApplication sharedApplication] setActivationPolicy:NSApplicationActivationPolicyAccessory];
-}
-
-void process_events(void) {
-    @try {
-        if (![NSThread isMainThread]) {
-            printf("Warning: process_events called from background thread!\n");
-        }
-        // printf("Processing events in objective-c\n");
-        // printf("Until: %p\n", until);
-        NSDate *until = [NSDate dateWithTimeIntervalSinceNow:0.1];  // 100ms collection window
-        NSEvent *event;
-        while ((event = [[NSApplication sharedApplication] 
-                nextEventMatchingMask:NSEventMaskAny
-                untilDate:until  // Changed from nil to until
-                inMode:NSDefaultRunLoopMode
-                dequeue:YES])) {
-            [[NSApplication sharedApplication] sendEvent:event];
-        }
-    }
-    @catch (NSException *exception) {
-        printf("EXCEPTION during event processing: %s - %s\n", 
-            [exception.name UTF8String], 
-            [exception.reason UTF8String]);
-        
-        // Print the stack trace
-        NSArray *callStack = [exception callStackSymbols];
-        printf("Stack trace:\n");
-        for (NSString *symbol in callStack) {
-            printf("%s\n", [symbol UTF8String]);
-        }
-    }
-}
-
-void cleanup(void) {
-    if (monitorHolder) {
-        for (id monitor in monitorHolder.monitors) {
-            [NSEvent removeMonitor:monitor];
-        }
-        monitorHolder.monitors = nil;
-        monitorHolder = nil;
-    }
+    [[NSRunLoop currentRunLoop] run];
 }
 
 const char* get_app_icon_data(const char* bundle_id) {

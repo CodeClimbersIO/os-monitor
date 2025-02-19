@@ -28,13 +28,9 @@ typedef struct {
 } WindowTitle;
 
 // Function declarations
-void start_mouse_monitoring(MouseEventCallback callback);
-void start_keyboard_monitoring(KeyboardEventCallback callback);
 WindowTitle* detect_focused_window(void);
-void initialize(void);
-void process_events(void);
-void cleanup(void);
 BOOL has_accessibility_permissions(void);
 BOOL request_accessibility_permissions(void);
 const char* get_app_icon_data(const char* bundle_id);
 void free_icon_data(const char* data);
+void start_monitoring(MouseEventCallback mouseCallback, KeyboardEventCallback keyboardCallback);

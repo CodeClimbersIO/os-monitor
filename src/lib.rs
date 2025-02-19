@@ -9,6 +9,6 @@ pub use event::{
     WindowEventType,
 };
 pub use platform::{
-    detect_changes, get_application_icon_data, has_accessibility_permissions, initialize_monitor,
-    request_accessibility_permissions,
+    detect_changes, get_application_icon_data, has_accessibility_permissions,
+    request_accessibility_permissions, start_monitoring,
 };

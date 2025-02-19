@@ -45,13 +45,14 @@ impl RawWindowTitle {
 #[link(name = "MacMonitor")]
 extern "C" {
     pub fn detect_focused_window() -> *const RawWindowTitle;
-    pub fn start_mouse_monitoring(callback: extern "C" fn(f64, f64, i32, i32));
-    pub fn start_keyboard_monitoring(callback: extern "C" fn(i32));
-    pub fn process_events();
     pub fn has_accessibility_permissions() -> bool;
     pub fn request_accessibility_permissions() -> bool;
     pub fn get_app_icon_data(bundle_id: *const c_char) -> *const c_char;
     pub fn free_icon_data(data: *const c_char);
+    pub fn start_monitoring(
+        mouse_callback: extern "C" fn(f64, f64, i32, i32),
+        keyboard_callback: extern "C" fn(i32),
+    );
 }
 
 #[cfg(target_os = "windows")]

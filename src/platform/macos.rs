@@ -112,23 +112,11 @@ fn send_buffered_events() {
     }
 }
 
-pub(crate) fn platform_initialize_monitor(monitor: Arc<Monitor>) -> Result<(), MonitorError> {
-    let mut monitor_guard = MONITOR.lock().unwrap();
-
-    *monitor_guard = Some(monitor);
-
-    unsafe {
-        bindings::start_mouse_monitoring(mouse_event_callback);
-        bindings::start_keyboard_monitoring(keyboard_event_callback);
-    }
-    Ok(())
-}
-
 pub(crate) fn platform_detect_changes() -> Result<(), MonitorError> {
     log::info!("platform_detect_changes start");
-    unsafe {
-        bindings::process_events();
-    }
+    // unsafe {
+    //     bindings::process_events();
+    // }
     log::info!("processed events");
     detect_focused_window();
     log::info!("detected focused window");
@@ -165,5 +153,11 @@ pub(crate) fn platform_get_application_icon_data(bundle_id: &str) -> Option<Stri
         let data = CStr::from_ptr(c_data).to_str().ok()?.to_owned();
         bindings::free_icon_data(c_data);
         Some(data)
+    }
+}
+
+pub(crate) fn platform_start_monitoring() {
+    unsafe {
+        bindings::start_monitoring(mouse_event_callback, keyboard_event_callback);
     }
 }

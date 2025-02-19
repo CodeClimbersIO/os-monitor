@@ -8,15 +8,10 @@ mod windows;
 #[cfg(target_os = "windows")]
 pub(crate) use windows::*;
 
-use crate::{event::Monitor, MonitorError};
-use std::sync::Arc;
+use crate::MonitorError;
 
 pub fn detect_changes() -> Result<(), MonitorError> {
     platform_detect_changes()
-}
-
-pub fn initialize_monitor(monitor: Arc<Monitor>) -> Result<(), MonitorError> {
-    platform_initialize_monitor(monitor)
 }
 
 pub fn has_accessibility_permissions() -> bool {
@@ -29,4 +24,8 @@ pub fn request_accessibility_permissions() -> bool {
 
 pub fn get_application_icon_data(bundle_id: &str) -> Option<String> {
     platform_get_application_icon_data(bundle_id)
+}
+
+pub fn start_monitoring() {
+    platform_start_monitoring();
 }
