@@ -179,6 +179,44 @@ BOOL isSupportedBrowser(NSString *bundleId) {
            [bundleId isEqualToString:@"company.thebrowser.Browser"];
 }
 
+NSRunningApplication* get_frontmost_app(void) {
+    // Get all windows
+    CFArrayRef windowList = CGWindowListCopyWindowInfo(
+        kCGWindowListOptionOnScreenOnly | kCGWindowListExcludeDesktopElements,
+        kCGNullWindowID
+    );
+    
+    NSArray *windows = (__bridge_transfer NSArray *)windowList;
+    NSDictionary *frontWindow = nil;
+    
+    // Find the frontmost window (layer 0 is frontmost)
+    for (NSDictionary *window in windows) {
+        NSNumber *layer = window[(id)kCGWindowLayer];
+        NSNumber *alpha = window[(id)kCGWindowAlpha];
+        
+        // Check if window is visible and in front
+        if ([layer intValue] == 0 && [alpha floatValue] > 0) {
+            frontWindow = window;
+            break;
+        }
+    }
+    
+    if (!frontWindow) {
+        NSLog(@"No front window found");
+        return nil;
+    }
+    
+    // Get the process ID of the frontmost window
+    pid_t pid = [frontWindow[(id)kCGWindowOwnerPID] intValue];
+    NSRunningApplication *frontmostApp = [NSRunningApplication 
+        runningApplicationWithProcessIdentifier:pid];
+    
+    if (!frontmostApp) {
+        NSLog(@"Failed to get frontmost application");
+        return nil;
+    }
+    return frontmostApp;
+}
 
 WindowTitle* detect_focused_window(void) {
     if (!has_accessibility_permissions()) {
@@ -187,35 +225,7 @@ WindowTitle* detect_focused_window(void) {
 
 
     // Get the frontmost application using both methods for better reliability
-    NSRunningApplication *frontmostApp;
-    
-    // First try: Using AXUIElement (current method)
-    AXUIElementRef systemWide = AXUIElementCreateSystemWide();
-    printAttributes(systemWide, 0);
-    AXUIElementRef focusedApp = NULL;
-    AXError systemWideResult = AXUIElementCopyAttributeValue(
-        systemWide,
-        kAXFocusedApplicationAttribute,
-        (CFTypeRef *)&focusedApp
-    );
-
-    if (systemWideResult == kAXErrorSuccess && focusedApp) {
-        pid_t pid;
-        AXUIElementGetPid(focusedApp, &pid);
-        frontmostApp = [NSRunningApplication runningApplicationWithProcessIdentifier:pid];
-        CFRelease(focusedApp);
-    } else {
-        // Fallback method: Use NSWorkspace
-        NSWorkspace *workspace = [NSWorkspace sharedWorkspace];
-        [workspace noteFileSystemChanged:@"/"]; // Force refresh of workspace information
-        frontmostApp = [workspace frontmostApplication];
-        NSLog(@"Using fallback method to get frontmost application");
-    }
-    if (systemWideResult != kAXErrorSuccess) {
-        NSLog(@"Failed to get frontmost application: %@ (error code: %d)", 
-            getAXErrorDescription(systemWideResult), (int)systemWideResult);
-    }
-    CFRelease(systemWide);
+    NSRunningApplication *frontmostApp = get_frontmost_app();
     
     if (!frontmostApp) {
         NSLog(@"Failed to get frontmost application");
