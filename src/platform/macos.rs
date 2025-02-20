@@ -32,8 +32,6 @@ fn detect_focused_window() {
             return;
         }
 
-        log::info!("  detect_focused_window window_title: {:?}", window_title);
-
         let title = std::ffi::CStr::from_ptr((*window_title).window_title)
             .to_str()
             .unwrap();
@@ -41,9 +39,14 @@ fn detect_focused_window() {
         let app_name = std::ffi::CStr::from_ptr((*window_title).app_name)
             .to_str()
             .unwrap();
+
         let bundle_id = (*window_title).get_bundle_id();
         let url = (*window_title).get_url();
-
+        log::info!(
+            "  detect_focused_window window_title: {:?} {:?}",
+            app_name,
+            title
+        );
         log::info!("  detect_focused_window bundle_id: {:?}", bundle_id);
         log::info!("  detect_focused_window url: {:?}", url);
 
@@ -156,8 +159,15 @@ pub(crate) fn platform_get_application_icon_data(bundle_id: &str) -> Option<Stri
     }
 }
 
-pub(crate) fn platform_start_monitoring() {
+pub(crate) fn platform_start_monitoring(monitor: Arc<Monitor>) {
+    log::info!("platform_start_monitoring start");
+    {
+        let mut monitor_guard = MONITOR.lock().unwrap();
+        *monitor_guard = Some(monitor);
+    }
+    log::info!("platform_start_monitoring end");
     unsafe {
         bindings::start_monitoring(mouse_event_callback, keyboard_event_callback);
     }
+    log::info!("bindings::start_monitoring end");
 }

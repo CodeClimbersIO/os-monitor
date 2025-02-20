@@ -1,7 +1,22 @@
+use std::sync::Arc;
+
 use os_monitor::{
     detect_changes, get_application_icon_data, has_accessibility_permissions,
-    request_accessibility_permissions, start_monitoring,
+    request_accessibility_permissions, start_monitoring, KeyboardEvent, Monitor, MouseEvent,
+    WindowEvent,
 };
+
+fn on_keyboard_events(events: Vec<KeyboardEvent>) {
+    log::info!("Keyboard event: {:?}", events);
+}
+
+fn on_mouse_events(events: Vec<MouseEvent>) {
+    log::info!("Mouse event: {:?}", events);
+}
+
+fn on_window_event(event: WindowEvent) {
+    log::info!("Window event: {:?}", event);
+}
 
 fn main() {
     env_logger::init();
@@ -17,13 +32,21 @@ fn main() {
     let icon_data = get_application_icon_data("md.obsidian");
     println!("icon_data: {}", icon_data.unwrap());
 
+    let monitor = Monitor::new();
+
+    monitor.register_keyboard_callback(Box::new(on_keyboard_events));
+    monitor.register_mouse_callback(Box::new(on_mouse_events));
+    monitor.register_window_callback(Box::new(on_window_event));
+
     std::thread::spawn(move || {
-        start_monitoring();
+        start_monitoring(Arc::new(monitor));
     });
     std::thread::spawn(move || {
         // initialize_monitor(monitor_clone).expect("Failed to initialize monitor");
         loop {
+            log::info!("detect_changes start");
             detect_changes().expect("Failed to detect changes");
+            log::info!("detect_changes end");
             std::thread::sleep(std::time::Duration::from_secs(1));
         }
     });

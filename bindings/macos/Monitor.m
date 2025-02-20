@@ -18,27 +18,88 @@
 static MonitorHolder *monitorHolder = nil;
 static NSString* getAXErrorDescription(AXError error) {
     switch (error) {
-        case kAXErrorCannotComplete:           
-            return @"Cannot complete the operation (window might be transitioning)";
-        case kAXErrorNotImplemented:           
-            return @"The accessibility feature is not implemented";
-        case kAXErrorInvalidUIElement:         
-            return @"Invalid UI element";
-        case kAXErrorFailure:                  
+        case kAXErrorAttributeUnsupported:
+            return @"The specified UI element does not support the specified attribute";
+        case kAXErrorNoValue:
+            return @"The specified attribute does not have a value";
+        case kAXErrorIllegalArgument:
+            return @"One or more of the arguments is an illegal value";
+        case kAXErrorInvalidUIElement:
+            return @"The UI element is invalid";
+        case kAXErrorCannotComplete:
+            return @"Cannot complete the operation (messaging failed or window might be transitioning)";
+        case kAXErrorNotImplemented:
+            return @"The process does not fully support the accessibility API";
+        case kAXErrorAPIDisabled:
+            return @"Accessibility API is disabled";
+        case kAXErrorFailure:
             return @"Operation failed";
-        case kAXErrorIllegalArgument:          
-            return @"Illegal argument";
-        case kAXErrorNoValue:                 
-            return @"No value available";
-        case kAXErrorAPIDisabled:              
-            return @"Accessibility API disabled";
-        case kAXErrorNotificationUnsupported:  
+        case kAXErrorNotificationUnsupported:
             return @"Notification not supported";
         default:
             return [NSString stringWithFormat:@"Unknown error code: %d", (int)error];
     }
 }
 
+
+
+void printAttributes(AXUIElementRef element, int depth) {
+    if (!element) return;
+    
+    CFArrayRef attributeNames;
+    AXUIElementCopyAttributeNames(element, &attributeNames);
+    NSArray *attributes = (__bridge_transfer NSArray *)attributeNames;
+
+    CFStringRef titleRef;
+    AXUIElementCopyAttributeValue(element, kAXTitleAttribute, (CFTypeRef *)&titleRef);
+    NSString *title = (__bridge_transfer NSString *)titleRef;
+    
+    CFStringRef roleRef;
+    AXUIElementCopyAttributeValue(element, kAXRoleAttribute, (CFTypeRef *)&roleRef);
+    NSString *role = (__bridge_transfer NSString *)roleRef;
+
+    // Create indent based on depth with colors
+    char indent[100] = "";
+    // ANSI foreground color codes from 31-36 (red, green, cyan, blue, magenta, yellow)
+    int colorCode = 31 + (depth % 6);
+    for (int i = 0; i < depth; i++) {
+        strcat(indent, "  "); // Just add spaces without color
+    }
+    
+    // Add color code at the start of the line, but after the indent
+    char colorStart[20];
+    sprintf(colorStart, "\033[%dm", colorCode);
+    
+    // Reset color code at the end of indent
+    char resetColor[] = "\033[0m";
+    
+    printf("\n%s%s=== Element at depth %d ===%s\n", indent, colorStart, depth, resetColor);
+    printf("%s%sRole: %s%s\n", indent, colorStart, [role UTF8String], resetColor);
+    if (title) {
+        printf("%s%sTitle: %s%s\n", indent, colorStart, [title UTF8String], resetColor);
+    }
+    
+    for (NSString *attribute in attributes) {
+        CFTypeRef valueRef;
+        AXError error = AXUIElementCopyAttributeValue(element, (__bridge CFStringRef)attribute, &valueRef);
+        
+        if (error == kAXErrorSuccess) {
+            id value = (__bridge_transfer id)valueRef;
+            printf("%s%sAttribute: %s = %s%s\n", indent, colorStart, [attribute UTF8String], [[value description] UTF8String], resetColor);
+            
+            // Recursively explore children
+            if ([attribute isEqualToString:NSAccessibilityChildrenAttribute]) {
+                NSArray *children = (NSArray *)value;
+                for (id child in children) {
+                    printAttributes((__bridge AXUIElementRef)child, depth + 1);
+                }
+            }
+        } else {
+            printf("%s%sAttribute: %s (Error getting value: %d)%s\n", indent, colorStart, [attribute UTF8String], error, resetColor);
+        }
+    }
+    printf("%s%s===========================%s\n\n", indent, colorStart, resetColor);
+}
 
 BOOL isDomain(NSString *str) {
     NSString *pattern = @"^(?:https?:\\/\\/)?(?:www\\.)?[a-zA-Z0-9-]+(?:\\.[a-zA-Z0-9-]+)*\\.[a-zA-Z]{2,}(?:\\/[^\\s]*)?(?:\\?[^\\s]*)?$";
@@ -118,20 +179,49 @@ BOOL isSupportedBrowser(NSString *bundleId) {
            [bundleId isEqualToString:@"company.thebrowser.Browser"];
 }
 
+
 WindowTitle* detect_focused_window(void) {
     if (!has_accessibility_permissions()) {
         return nil;
     }
 
-        
-    // Create system-wide accessibility element
-    // Get the frontmost application process first
-    NSRunningApplication *frontmostApp = [[NSWorkspace sharedWorkspace] frontmostApplication];
+
+    // Get the frontmost application using both methods for better reliability
+    NSRunningApplication *frontmostApp;
+    
+    // First try: Using AXUIElement (current method)
+    AXUIElementRef systemWide = AXUIElementCreateSystemWide();
+    printAttributes(systemWide, 0);
+    AXUIElementRef focusedApp = NULL;
+    AXError systemWideResult = AXUIElementCopyAttributeValue(
+        systemWide,
+        kAXFocusedApplicationAttribute,
+        (CFTypeRef *)&focusedApp
+    );
+
+    if (systemWideResult == kAXErrorSuccess && focusedApp) {
+        pid_t pid;
+        AXUIElementGetPid(focusedApp, &pid);
+        frontmostApp = [NSRunningApplication runningApplicationWithProcessIdentifier:pid];
+        CFRelease(focusedApp);
+    } else {
+        // Fallback method: Use NSWorkspace
+        NSWorkspace *workspace = [NSWorkspace sharedWorkspace];
+        [workspace noteFileSystemChanged:@"/"]; // Force refresh of workspace information
+        frontmostApp = [workspace frontmostApplication];
+        NSLog(@"Using fallback method to get frontmost application");
+    }
+    if (systemWideResult != kAXErrorSuccess) {
+        NSLog(@"Failed to get frontmost application: %@ (error code: %d)", 
+            getAXErrorDescription(systemWideResult), (int)systemWideResult);
+    }
+    CFRelease(systemWide);
     
     if (!frontmostApp) {
         NSLog(@"Failed to get frontmost application");
         return nil;
     }
+    
     NSString *bundleId = frontmostApp.bundleIdentifier;
     
     // Create an accessibility element for the specific application
@@ -295,16 +385,16 @@ const char* get_app_icon_data(const char* bundle_id) {
         NSString *bundleIdStr = [NSString stringWithUTF8String:bundle_id];
         NSWorkspace *workspace = [NSWorkspace sharedWorkspace];
         
-        // Get the icon for the application
+        // // Get the icon for the application
         NSImage *icon = [workspace iconForFile:[[workspace URLForApplicationWithBundleIdentifier:bundleIdStr] path]];
         if (!icon) return NULL;
         
-        // Convert to PNG data
+        // // Convert to PNG data
         NSBitmapImageRep *imageRep = [NSBitmapImageRep imageRepWithData:[icon TIFFRepresentation]];
         NSData *pngData = [imageRep representationUsingType:NSBitmapImageFileTypePNG properties:@{}];
         if (!pngData) return NULL;
         
-        // Convert to base64
+        // // Convert to base64
         NSString *base64String = [pngData base64EncodedStringWithOptions:0];
         NSString *dataUrl = [NSString stringWithFormat:@"data:image/png;base64,%@", base64String];
         
