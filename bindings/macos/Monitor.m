@@ -41,8 +41,6 @@ static NSString* getAXErrorDescription(AXError error) {
     }
 }
 
-
-
 void printAttributes(AXUIElementRef element, int depth) {
     if (!element) return;
     
@@ -220,6 +218,7 @@ NSRunningApplication* get_frontmost_app(void) {
 
 WindowTitle* detect_focused_window(void) {
     if (!has_accessibility_permissions()) {
+        NSLog(@"detect_focused_window - No accessibility permissions");
         return nil;
     }
 
@@ -357,6 +356,10 @@ CGEventRef eventCallback(CGEventTapProxy proxy, CGEventType type, CGEventRef eve
 }
 
 void start_monitoring(MouseEventCallback mouseCallback, KeyboardEventCallback keyboardCallback) {
+    if (!has_accessibility_permissions()) {
+        NSLog(@"start_monitoring - No accessibility permissions");
+        return;
+    }
     if (!monitorHolder) {
         monitorHolder = [[MonitorHolder alloc] init];
     }
