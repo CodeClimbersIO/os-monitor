@@ -2,6 +2,7 @@ use crate::event::{Platform, WindowEvent};
 use crate::{bindings, event::EventCallback, Monitor};
 use crate::{KeyboardEvent, MonitorError, MouseEvent, MouseEventType};
 use once_cell::sync::Lazy;
+use std::ffi::c_char;
 use std::ffi::{CStr, CString};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -170,4 +171,29 @@ pub(crate) fn platform_start_monitoring(monitor: Arc<Monitor>) {
         bindings::start_monitoring(mouse_event_callback, keyboard_event_callback);
     }
     log::info!("bindings::start_monitoring end");
+}
+
+pub(crate) fn platform_start_site_blocking(urls: &[String]) -> bool {
+    log::info!("platform_start_site_blocking start");
+    let c_urls: Vec<CString> = urls
+        .iter()
+        .map(|url| CString::new(url.as_str()).unwrap())
+        .collect();
+
+    let c_urls_ptrs: Vec<*const c_char> = c_urls.iter().map(|url| url.as_ptr()).collect();
+    log::info!("platform_start_site_blocking start");
+    unsafe { bindings::start_site_blocking(c_urls_ptrs.as_ptr(), c_urls_ptrs.len() as i32) }
+}
+
+pub(crate) fn platform_stop_site_blocking() {
+    unsafe {
+        bindings::stop_site_blocking();
+    }
+}
+
+pub(crate) fn platform_is_url_blocked(url: &str) -> bool {
+    unsafe {
+        let c_url = CString::new(url).unwrap();
+        bindings::is_url_blocked(c_url.as_ptr())
+    }
 }

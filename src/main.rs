@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use os_monitor::{
     detect_changes, get_application_icon_data, has_accessibility_permissions,
-    request_accessibility_permissions, start_monitoring, KeyboardEvent, Monitor, MouseEvent,
-    WindowEvent,
+    request_accessibility_permissions, start_monitoring, start_site_blocking, KeyboardEvent,
+    Monitor, MouseEvent, WindowEvent,
 };
 
 fn on_keyboard_events(events: Vec<KeyboardEvent>) {
@@ -30,7 +30,7 @@ fn main() {
     }
 
     let icon_data = get_application_icon_data("md.obsidian");
-    println!("icon_data: {}", icon_data.unwrap());
+    // println!("icon_data: {}", icon_data.unwrap());
 
     let monitor = Monitor::new();
 
@@ -39,6 +39,14 @@ fn main() {
     monitor.register_window_callback(Box::new(on_window_event));
 
     std::thread::spawn(move || {
+        let blocked_urls = vec![
+            "facebook.com".to_string(),
+            "twitter.com".to_string(),
+            "instagram.com".to_string(),
+        ];
+
+        // Enable site blocking
+        start_site_blocking(&blocked_urls);
         start_monitoring(Arc::new(monitor));
     });
     std::thread::spawn(move || {

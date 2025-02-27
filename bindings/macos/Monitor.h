@@ -1,6 +1,7 @@
 #import <Cocoa/Cocoa.h>
 #import "AccessibilityUtils.h"
 #import "WindowUtils.h"
+#import "SiteBlocker.h"
 
 typedef NS_ENUM(int32_t, MouseEventType) {
     MouseEventTypeMove = 0,

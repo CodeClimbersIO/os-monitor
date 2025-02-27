@@ -27,6 +27,10 @@ fn main() {
                 .join("bindings")
                 .join("macos")
                 .join("WindowUtils.m"),
+            manifest_dir
+                .join("bindings")
+                .join("macos")
+                .join("SiteBlocker.m"),
         ];
 
         // Define all header files (for dependency tracking)
@@ -43,6 +47,10 @@ fn main() {
                 .join("bindings")
                 .join("macos")
                 .join("WindowUtils.h"),
+            manifest_dir
+                .join("bindings")
+                .join("macos")
+                .join("SiteBlocker.h"),
         ];
 
         let out_dir = std::env::var("OUT_DIR").unwrap();

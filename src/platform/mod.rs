@@ -31,3 +31,15 @@ pub fn get_application_icon_data(bundle_id: &str) -> Option<String> {
 pub fn start_monitoring(monitor: Arc<Monitor>) {
     platform_start_monitoring(monitor);
 }
+
+pub fn start_site_blocking(urls: &[String]) -> bool {
+    platform_start_site_blocking(urls)
+}
+
+pub fn stop_site_blocking() {
+    platform_stop_site_blocking()
+}
+
+pub fn is_url_blocked(url: &str) -> bool {
+    platform_is_url_blocked(url)
+}
