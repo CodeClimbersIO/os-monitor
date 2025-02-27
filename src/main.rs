@@ -45,7 +45,7 @@ fn main() {
         ];
 
         // Enable site blocking
-        start_site_blocking(&blocked_urls);
+        start_site_blocking(&blocked_urls, "https://ebb.cool/vibes");
         start_monitoring(Arc::new(monitor));
     });
     std::thread::spawn(move || {

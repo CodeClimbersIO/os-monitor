@@ -169,7 +169,7 @@ pub(crate) fn platform_start_monitoring(monitor: Arc<Monitor>) {
     log::info!("bindings::start_monitoring end");
 }
 
-pub(crate) fn platform_start_site_blocking(urls: &[String]) -> bool {
+pub(crate) fn platform_start_site_blocking(urls: &[String], redirect_url: &str) -> bool {
     log::info!("platform_start_site_blocking start");
     let c_urls: Vec<CString> = urls
         .iter()
@@ -177,8 +177,17 @@ pub(crate) fn platform_start_site_blocking(urls: &[String]) -> bool {
         .collect();
 
     let c_urls_ptrs: Vec<*const c_char> = c_urls.iter().map(|url| url.as_ptr()).collect();
+
+    let c_redirect_url = CString::new(redirect_url).unwrap();
+
     log::info!("platform_start_site_blocking start");
-    unsafe { bindings::start_site_blocking(c_urls_ptrs.as_ptr(), c_urls_ptrs.len() as i32) }
+    unsafe {
+        bindings::start_site_blocking(
+            c_urls_ptrs.as_ptr(),
+            c_urls_ptrs.len() as i32,
+            c_redirect_url.as_ptr(),
+        )
+    }
 }
 
 pub(crate) fn platform_stop_site_blocking() {

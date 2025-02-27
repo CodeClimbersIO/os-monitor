@@ -1,7 +1,7 @@
 #import <Cocoa/Cocoa.h>
 
-// Function to start site blocking with a list of URLs to block
-BOOL start_site_blocking(const char** blocked_urls, int url_count);
+// Function to start site blocking with a list of URLs to block and a redirect URL
+BOOL start_site_blocking(const char** blocked_urls, int url_count, const char* redirect_url);
 
 // Function to stop site blocking
 void stop_site_blocking(void);

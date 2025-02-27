@@ -53,7 +53,11 @@ extern "C" {
         mouse_callback: extern "C" fn(f64, f64, i32, i32),
         keyboard_callback: extern "C" fn(i32),
     );
-    pub fn start_site_blocking(blocked_urls: *const *const c_char, url_count: i32) -> bool;
+    pub fn start_site_blocking(
+        blocked_urls: *const *const c_char,
+        url_count: i32,
+        redirect_url: *const c_char,
+    ) -> bool;
     pub fn stop_site_blocking();
     pub fn is_url_blocked(url: *const c_char) -> bool;
     pub fn redirect_to_vibes_page() -> bool;

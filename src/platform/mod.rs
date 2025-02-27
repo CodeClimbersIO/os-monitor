@@ -32,8 +32,8 @@ pub fn start_monitoring(monitor: Arc<Monitor>) {
     platform_start_monitoring(monitor);
 }
 
-pub fn start_site_blocking(urls: &[String]) -> bool {
-    platform_start_site_blocking(urls)
+pub fn start_site_blocking(urls: &[String], redirect_url: &str) -> bool {
+    platform_start_site_blocking(urls, redirect_url)
 }
 
 pub fn stop_site_blocking() {

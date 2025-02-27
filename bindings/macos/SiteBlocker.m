@@ -6,7 +6,7 @@
 // Static variables to store state
 static BOOL siteBlockingEnabled = NO;
 static NSMutableArray<NSString*> *blockedUrls = nil;
-static NSString *vibesUrl = @"https://ebb.cool/vibes";
+static NSString *vibesUrl = nil; 
 
 // Function declarations (prototypes)
 void simulateKeyPress(CGKeyCode keyCode, CGEventFlags flags);
@@ -72,9 +72,15 @@ AXUIElementRef findURLFieldInElement(AXUIElementRef element) {
     return NULL;
 }
 
-BOOL start_site_blocking(const char** blocked_urls, int url_count) {
+BOOL start_site_blocking(const char** blocked_urls, int url_count, const char* redirect_url) {
     NSLog(@"start_site_blocking");
     @autoreleasepool {
+        // Check if redirect_url is provided (now required)
+        if (!redirect_url) {
+            NSLog(@"Error: redirect_url is required");
+            return NO;  // Return failure if redirect_url is not provided
+        }
+        
         if (blockedUrls == nil) {
             blockedUrls = [NSMutableArray array];
         } else {
@@ -89,6 +95,10 @@ BOOL start_site_blocking(const char** blocked_urls, int url_count) {
                 NSLog(@"Blocking URL: %@", url);
             }
         }
+        
+        // Set the redirect URL (now required)
+        vibesUrl = [NSString stringWithUTF8String:redirect_url];
+        NSLog(@"Redirect URL set to: %@", vibesUrl);
         
         siteBlockingEnabled = YES;
         NSLog(@"Site blocking enabled");
