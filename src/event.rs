@@ -45,19 +45,10 @@ pub enum WindowEventType {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MouseEvent {
-    pub x: f64,
-    pub y: f64,
-    pub event_type: MouseEventType,
-    pub scroll_delta: i32,
-    pub platform: Platform,
-}
+pub struct MouseEvent {}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct KeyboardEvent {
-    pub key_code: i32,
-    pub platform: Platform,
-}
+pub struct KeyboardEvent {}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WindowEvent {
