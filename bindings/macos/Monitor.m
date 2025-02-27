@@ -32,11 +32,6 @@ CGEventRef eventCallback(CGEventTapProxy proxy, CGEventType type, CGEventRef eve
             if (monitorHolder.keyboardCallback) {
                 CGKeyCode keyCode = (CGKeyCode)CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode);
                 monitorHolder.keyboardCallback((int32_t)keyCode);
-                
-                // Check if it's an Enter key (keyCode 36) and handle site blocking
-                if (keyCode == 36) {
-                    handle_enter_key_for_site_blocking();
-                }
             }
             break;
             

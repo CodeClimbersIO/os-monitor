@@ -54,7 +54,6 @@ BOOL is_url_blocked(const char* url) {
             if ([currentUrl rangeOfString:blockedUrl options:NSCaseInsensitiveSearch].location != NSNotFound) {
                 NSLog(@"URL %@ is blocked (matched %@)", currentUrl, blockedUrl);
                 return YES;
-                
             }
         }
         
@@ -94,67 +93,21 @@ BOOL redirect_to_vibes_page(void) {
             return NO;
         }
         
-        // Execute the AppleScript
-        NSAppleScript *script = [[NSAppleScript alloc] initWithSource:appleScript];
-        NSDictionary *error = nil;
-        [script executeAndReturnError:&error];
-        
-        if (error) {
-            NSLog(@"AppleScript error: %@", error);
-            return NO;
-        }
-        
-        NSLog(@"Redirected to vibes page");
-        return YES;
-    }
-}
-
-BOOL handle_enter_key_for_site_blocking(void) {
-    NSLog(@"handle_enter_key_for_site_blocking");
-    if (!siteBlockingEnabled) {
-        return NO;
-    }
-
-    NSLog(@"handle_enter_key_for_site_blocking start");
-    NSLog(@"try detect before");
-
-    @autoreleasepool {
-        // Use a global concurrent queue instead of the main queue
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)), 
-                       dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-            NSLog(@"try detect");
-            WindowTitle* windowInfo = detect_focused_window();
-            if (!windowInfo) {
-                NSLog(@"detect_focused_window no window info");
-                return;
-            }
-            NSLog(@"detect_focused_window end");
+        // Execute the AppleScript asynchronously
+        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+            NSLog(@"Executing AppleScript on background thread");
+            NSAppleScript *script = [[NSAppleScript alloc] initWithSource:appleScript];
+            NSDictionary *error = nil;
+            [script executeAndReturnError:&error];
             
-            // Check if it's a browser and has a URL
-            if (!windowInfo->url) {
-                free((void*)windowInfo->app_name);
-                free((void*)windowInfo->window_title);
-                free((void*)windowInfo->bundle_id);
-                NSLog(@"No URL found");
-                return;
-            }
-
-            NSLog(@"URL: %s", windowInfo->url);
-            // Check if the URL is blocked
-            BOOL isBlocked = is_url_blocked(windowInfo->url);
-            
-            // Free the window info
-            free((void*)windowInfo->app_name);
-            free((void*)windowInfo->window_title);
-            free((void*)windowInfo->bundle_id);
-            free((void*)windowInfo->url);
-            
-            // If URL is blocked, redirect to vibes page
-            if (isBlocked) {
-                redirect_to_vibes_page();
+            if (error) {
+                NSLog(@"AppleScript error: %@", error);
+            } else {
+                NSLog(@"Redirected to vibes page");
             }
         });
         
-        return YES; // Return YES to indicate we've scheduled a check
+        // Return immediately while the script executes in the background
+        return YES;
     }
 } 

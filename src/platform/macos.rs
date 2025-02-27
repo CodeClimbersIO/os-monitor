@@ -51,6 +51,16 @@ fn detect_focused_window() {
         log::info!("  detect_focused_window bundle_id: {:?}", bundle_id);
         log::info!("  detect_focused_window url: {:?}", url);
 
+        // Check if URL is blocked and redirect if needed
+        if let Some(url_str) = url.as_deref() {
+            if platform_is_url_blocked(url_str) {
+                log::info!("URL is blocked, redirecting to vibes page");
+                unsafe {
+                    bindings::redirect_to_vibes_page();
+                }
+            }
+        }
+
         {
             log::info!("  detect_focused_window lock");
             let mut window_title_guard = FOCUSED_WINDOW.lock().unwrap();

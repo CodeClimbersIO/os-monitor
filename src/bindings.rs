@@ -56,6 +56,7 @@ extern "C" {
     pub fn start_site_blocking(blocked_urls: *const *const c_char, url_count: i32) -> bool;
     pub fn stop_site_blocking();
     pub fn is_url_blocked(url: *const c_char) -> bool;
+    pub fn redirect_to_vibes_page() -> bool;
 }
 
 #[cfg(target_os = "windows")]
