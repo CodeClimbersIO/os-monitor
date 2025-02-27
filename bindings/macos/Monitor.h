@@ -1,4 +1,5 @@
 #import <Cocoa/Cocoa.h>
+#import "AccessibilityUtils.h"
 
 typedef NS_ENUM(int32_t, MouseEventType) {
     MouseEventTypeMove = 0,
@@ -29,8 +30,6 @@ typedef struct {
 
 // Function declarations
 WindowTitle* detect_focused_window(void);
-BOOL has_accessibility_permissions(void);
-BOOL request_accessibility_permissions(void);
 const char* get_app_icon_data(const char* bundle_id);
 void free_icon_data(const char* data);
 void start_monitoring(MouseEventCallback mouseCallback, KeyboardEventCallback keyboardCallback);

@@ -21,7 +21,15 @@ fn main() {
             manifest_dir
                 .join("bindings")
                 .join("macos")
+                .join("AccessibilityUtils.m"),
+            manifest_dir
+                .join("bindings")
+                .join("macos")
                 .join("Monitor.h"),
+            manifest_dir
+                .join("bindings")
+                .join("macos")
+                .join("AccessibilityUtils.h"),
         ];
         let out_dir = std::env::var("OUT_DIR").unwrap();
         let out_path = PathBuf::from(out_dir);
@@ -39,8 +47,9 @@ fn main() {
                 "Cocoa",
                 "-dynamiclib",
                 source_files[0].to_str().unwrap(),
+                source_files[1].to_str().unwrap(),
                 "-I",
-                source_files[1].parent().unwrap().to_str().unwrap(),
+                source_files[2].parent().unwrap().to_str().unwrap(),
                 "-o",
                 out_path.join("libMacMonitor.dylib").to_str().unwrap(),
             ])
