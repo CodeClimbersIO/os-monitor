@@ -2,16 +2,15 @@ use std::sync::Arc;
 
 use os_monitor::{
     detect_changes, get_application_icon_data, has_accessibility_permissions,
-    request_accessibility_permissions, start_monitoring, start_site_blocking, KeyboardEvent,
-    Monitor, MouseEvent, WindowEvent,
+    request_accessibility_permissions, start_monitoring, start_site_blocking, Monitor, WindowEvent,
 };
 
-fn on_keyboard_events(events: Vec<KeyboardEvent>) {
-    log::info!("Keyboard event: {:?}", events);
+fn on_keyboard_events(has_activity: bool) {
+    log::info!("Keyboard event: {}", has_activity);
 }
 
-fn on_mouse_events(events: Vec<MouseEvent>) {
-    log::info!("Mouse event: {:?}", events);
+fn on_mouse_events(has_activity: bool) {
+    log::info!("Mouse event: {}", has_activity);
 }
 
 fn on_window_event(event: WindowEvent) {
@@ -30,7 +29,7 @@ fn main() {
     }
 
     let icon_data = get_application_icon_data("md.obsidian");
-    // println!("icon_data: {}", icon_data.unwrap());
+    println!("icon_data: {}", icon_data.unwrap().len());
 
     let monitor = Monitor::new();
 

@@ -1,6 +1,6 @@
 use crate::event::{Platform, WindowEvent};
+use crate::MonitorError;
 use crate::{bindings, event::EventCallback, Monitor};
-use crate::{KeyboardEvent, MonitorError, MouseEvent, MouseEventType};
 use once_cell::sync::Lazy;
 use std::ffi::c_char;
 use std::ffi::{CStr, CString};
@@ -14,8 +14,8 @@ struct WindowTitle {
 
 static MONITOR: Lazy<Mutex<Option<Arc<Monitor>>>> = Lazy::new(|| Mutex::new(None));
 
-static MOUSE_EVENTS: Mutex<Vec<MouseEvent>> = Mutex::new(Vec::new());
-static KEYBOARD_EVENTS: Mutex<Vec<KeyboardEvent>> = Mutex::new(Vec::new());
+static HAS_MOUSE_ACTIVITY: Mutex<bool> = Mutex::new(false);
+static HAS_KEYBOARD_ACTIVITY: Mutex<bool> = Mutex::new(false);
 
 static LAST_SEND: Lazy<Mutex<Instant>> = Lazy::new(|| Mutex::new(Instant::now()));
 
@@ -55,9 +55,7 @@ fn detect_focused_window() {
         if let Some(url_str) = url.as_deref() {
             if platform_is_url_blocked(url_str) {
                 log::info!("URL is blocked, redirecting to vibes page");
-                unsafe {
-                    bindings::redirect_to_vibes_page();
-                }
+                bindings::redirect_to_vibes_page();
             }
         }
 
@@ -90,48 +88,36 @@ fn detect_focused_window() {
     }
 }
 
-extern "C" fn mouse_event_callback(x: f64, y: f64, event_type: i32, scroll_delta: i32) {
-    let mouse_event = MouseEvent {
-        x,
-        y,
-        event_type: MouseEventType::try_from(event_type).unwrap(),
-        scroll_delta,
-        platform: Platform::Mac,
-    };
+extern "C" fn mouse_event_callback(_: f64, _: f64, _: i32, _: i32) {
     // Store event in vector
-    let mut events = MOUSE_EVENTS.lock().unwrap();
-    events.push(mouse_event);
+    let mut has_activity = HAS_MOUSE_ACTIVITY.lock().unwrap();
+    *has_activity = true;
 }
 
-extern "C" fn keyboard_event_callback(key_code: i32) {
-    let keyboard_event = KeyboardEvent {
-        key_code,
-        platform: Platform::Mac,
-    };
-    // Store event in vector
-    let mut events = KEYBOARD_EVENTS.lock().unwrap();
-    events.push(keyboard_event);
+extern "C" fn keyboard_event_callback(_: i32) {
+    let mut has_activity = HAS_KEYBOARD_ACTIVITY.lock().unwrap();
+    *has_activity = true;
 }
 
 fn send_buffered_events() {
     let monitor_guard = MONITOR.lock().unwrap();
     if let Some(monitor) = monitor_guard.as_ref() {
-        // Send mouse events
-        let mut mouse_events = MOUSE_EVENTS.lock().unwrap();
-        monitor.on_mouse_events(mouse_events.drain(..).collect());
+        {
+            let mut has_activity = HAS_KEYBOARD_ACTIVITY.lock().unwrap();
+            monitor.on_keyboard_events(has_activity.clone());
+            *has_activity = false;
+        }
 
-        // Send keyboard events
-        let mut keyboard_events = KEYBOARD_EVENTS.lock().unwrap();
-        monitor.on_keyboard_events(keyboard_events.drain(..).collect());
+        {
+            let mut has_activity = HAS_MOUSE_ACTIVITY.lock().unwrap();
+            monitor.on_mouse_events(has_activity.clone());
+            *has_activity = false;
+        }
     }
 }
 
 pub(crate) fn platform_detect_changes() -> Result<(), MonitorError> {
     log::info!("platform_detect_changes start");
-    // unsafe {
-    //     bindings::process_events();
-    // }
-    log::info!("processed events");
     detect_focused_window();
     log::info!("detected focused window");
 

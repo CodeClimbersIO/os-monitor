@@ -69,13 +69,13 @@ pub struct WindowEvent {
 }
 
 pub trait EventCallback: Send + Sync {
-    fn on_mouse_events(&self, events: Vec<MouseEvent>);
-    fn on_keyboard_events(&self, events: Vec<KeyboardEvent>);
+    fn on_mouse_events(&self, has_activity: bool);
+    fn on_keyboard_events(&self, has_activity: bool);
     fn on_window_event(&self, event: WindowEvent);
 }
 pub struct Monitor {
-    mouse_callbacks: Mutex<Vec<Box<dyn Fn(Vec<MouseEvent>) + Send + Sync>>>,
-    keyboard_callbacks: Mutex<Vec<Box<dyn Fn(Vec<KeyboardEvent>) + Send + Sync>>>,
+    mouse_callbacks: Mutex<Vec<Box<dyn Fn(bool) + Send + Sync>>>,
+    keyboard_callbacks: Mutex<Vec<Box<dyn Fn(bool) + Send + Sync>>>,
     window_callbacks: Mutex<Vec<Box<dyn Fn(WindowEvent) + Send + Sync>>>,
 }
 
@@ -88,14 +88,11 @@ impl Monitor {
         }
     }
 
-    pub fn register_keyboard_callback(
-        &self,
-        callback: Box<dyn Fn(Vec<KeyboardEvent>) + Send + Sync>,
-    ) {
+    pub fn register_keyboard_callback(&self, callback: Box<dyn Fn(bool) + Send + Sync>) {
         self.keyboard_callbacks.lock().unwrap().push(callback);
     }
 
-    pub fn register_mouse_callback(&self, callback: Box<dyn Fn(Vec<MouseEvent>) + Send + Sync>) {
+    pub fn register_mouse_callback(&self, callback: Box<dyn Fn(bool) + Send + Sync>) {
         self.mouse_callbacks.lock().unwrap().push(callback);
     }
 
@@ -105,17 +102,17 @@ impl Monitor {
 }
 
 impl EventCallback for Monitor {
-    fn on_mouse_events(&self, events: Vec<MouseEvent>) {
+    fn on_mouse_events(&self, has_activity: bool) {
         let mut callbacks = self.mouse_callbacks.lock().unwrap();
         for callback in callbacks.iter_mut() {
-            callback(events.clone());
+            callback(has_activity);
         }
     }
 
-    fn on_keyboard_events(&self, events: Vec<KeyboardEvent>) {
+    fn on_keyboard_events(&self, has_activity: bool) {
         let mut callbacks = self.keyboard_callbacks.lock().unwrap();
         for callback in callbacks.iter_mut() {
-            callback(events.clone());
+            callback(has_activity);
         }
     }
 
