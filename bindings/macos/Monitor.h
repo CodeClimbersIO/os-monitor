@@ -1,5 +1,6 @@
 #import <Cocoa/Cocoa.h>
 #import "AccessibilityUtils.h"
+#import "WindowUtils.h"
 
 typedef NS_ENUM(int32_t, MouseEventType) {
     MouseEventTypeMove = 0,
@@ -21,15 +22,7 @@ typedef void (*KeyboardEventCallback)(int32_t keyCode);
 typedef void (*WindowEventCallback)(int32_t windowNumber, int32_t x, int32_t y, int32_t width, int32_t height, 
     const char* title, const char* url, const char* bundle_id, int32_t eventType);
 
-typedef struct {
-    const char* app_name;
-    const char* window_title;
-    const char* bundle_id;
-    const char* url;
-} WindowTitle;
-
 // Function declarations
-WindowTitle* detect_focused_window(void);
 const char* get_app_icon_data(const char* bundle_id);
 void free_icon_data(const char* data);
 void start_monitoring(MouseEventCallback mouseCallback, KeyboardEventCallback keyboardCallback);

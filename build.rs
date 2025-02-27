@@ -13,6 +13,7 @@ fn main() {
     if target_os == "macos" {
         println!("cargo:info=Building for macOS...");
 
+        // Define all source files
         let source_files = [
             manifest_dir
                 .join("bindings")
@@ -25,14 +26,28 @@ fn main() {
             manifest_dir
                 .join("bindings")
                 .join("macos")
+                .join("WindowUtils.m"),
+        ];
+
+        // Define all header files (for dependency tracking)
+        let header_files = [
+            manifest_dir
+                .join("bindings")
+                .join("macos")
                 .join("Monitor.h"),
             manifest_dir
                 .join("bindings")
                 .join("macos")
                 .join("AccessibilityUtils.h"),
+            manifest_dir
+                .join("bindings")
+                .join("macos")
+                .join("WindowUtils.h"),
         ];
+
         let out_dir = std::env::var("OUT_DIR").unwrap();
         let out_path = PathBuf::from(out_dir);
+        let include_dir = source_files[0].parent().unwrap();
 
         println!("cargo:info=Source files: {:?}", source_files);
         println!("cargo:info=Output directory: {}", out_path.display());
@@ -46,10 +61,12 @@ fn main() {
                 "-framework",
                 "Cocoa",
                 "-dynamiclib",
-                source_files[0].to_str().unwrap(),
-                source_files[1].to_str().unwrap(),
+            ])
+            // Add all source files as separate arguments
+            .args(source_files.iter().map(|p| p.to_str().unwrap()))
+            .args(&[
                 "-I",
-                source_files[2].parent().unwrap().to_str().unwrap(),
+                include_dir.to_str().unwrap(),
                 "-o",
                 out_path.join("libMacMonitor.dylib").to_str().unwrap(),
             ])
@@ -68,9 +85,9 @@ fn main() {
         println!("cargo:rustc-link-lib=framework=Cocoa");
         println!("cargo:rustc-link-lib=framework=Foundation");
 
-        // Tell Cargo to rerun if our Objective-C sources change
-        for source_file in &source_files {
-            println!("cargo:rerun-if-changed={}", source_file.display());
+        // Tell Cargo to rerun if any of our source or header files change
+        for file in source_files.iter().chain(header_files.iter()) {
+            println!("cargo:rerun-if-changed={}", file.display());
         }
     } else if target_os == "windows" {
         println!("cargo:info=Building for Windows...");
