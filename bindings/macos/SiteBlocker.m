@@ -8,6 +8,70 @@ static BOOL siteBlockingEnabled = NO;
 static NSMutableArray<NSString*> *blockedUrls = nil;
 static NSString *vibesUrl = @"https://ebb.cool/vibes";
 
+// Function declarations (prototypes)
+void simulateKeyPress(CGKeyCode keyCode, CGEventFlags flags);
+AXUIElementRef findURLFieldInElement(AXUIElementRef element);
+
+// Simulate a key press
+void simulateKeyPress(CGKeyCode keyCode, CGEventFlags flags) {
+    CGEventRef keyDown = CGEventCreateKeyboardEvent(NULL, keyCode, true);
+    CGEventRef keyUp = CGEventCreateKeyboardEvent(NULL, keyCode, false);
+    
+    CGEventSetFlags(keyDown, flags);
+    CGEventSetFlags(keyUp, flags);
+    
+    CGEventPost(kCGSessionEventTap, keyDown);
+    usleep(10000); // Short delay
+    CGEventPost(kCGSessionEventTap, keyUp);
+    
+    CFRelease(keyDown);
+    CFRelease(keyUp);
+}
+
+// Find URL field in a browser window using Accessibility API
+AXUIElementRef findURLFieldInElement(AXUIElementRef element) {
+    if (!element) return NULL;
+    
+    // Get the role
+    CFStringRef roleRef;
+    AXUIElementCopyAttributeValue(element, kAXRoleAttribute, (CFTypeRef *)&roleRef);
+    NSString *role = (__bridge_transfer NSString *)roleRef;
+    
+    // Check if this is a text field (potential URL field)
+    if ([role isEqualToString:NSAccessibilityTextFieldRole]) {
+        // Get the description or identifier
+        CFStringRef descriptionRef;
+        if (AXUIElementCopyAttributeValue(element, kAXDescriptionAttribute, (CFTypeRef *)&descriptionRef) == kAXErrorSuccess) {
+            NSString *description = (__bridge_transfer NSString *)descriptionRef;
+            
+            // Check if this is a URL field based on its description
+            NSArray *urlIdentifiers = @[@"Address", @"URL", @"Location", @"Address and search bar", @"address field"];
+            for (NSString *identifier in urlIdentifiers) {
+                if ([description rangeOfString:identifier options:NSCaseInsensitiveSearch].location != NSNotFound) {
+                    CFRetain(element); // Retain it since we'll pass it to the caller
+                    return element;
+                }
+            }
+        }
+    }
+    
+    // Recursively search children
+    CFArrayRef childrenRef;
+    AXError childrenError = AXUIElementCopyAttributeValue(element, kAXChildrenAttribute, (CFTypeRef *)&childrenRef);
+    
+    if (childrenError == kAXErrorSuccess) {
+        NSArray *children = (__bridge_transfer NSArray *)childrenRef;
+        for (id child in children) {
+            AXUIElementRef urlField = findURLFieldInElement((__bridge AXUIElementRef)child);
+            if (urlField) {
+                return urlField;
+            }
+        }
+    }
+    
+    return NULL;
+}
+
 BOOL start_site_blocking(const char** blocked_urls, int url_count) {
     NSLog(@"start_site_blocking");
     @autoreleasepool {
@@ -63,6 +127,7 @@ BOOL is_url_blocked(const char* url) {
 
 BOOL redirect_to_vibes_page(void) {
     @autoreleasepool {
+        NSLog(@"Redirecting to vibes page");
         NSRunningApplication *frontApp = get_frontmost_app();
         if (!frontApp) {
             NSLog(@"Failed to get frontmost application");
@@ -70,44 +135,119 @@ BOOL redirect_to_vibes_page(void) {
         }
         
         NSString *bundleId = frontApp.bundleIdentifier;
+        NSLog(@"Browser bundle ID: %@", bundleId);
         
-        // Create AppleScript to redirect based on browser
-        NSString *appleScript = nil;
-        
-        if ([bundleId isEqualToString:@"com.apple.Safari"]) {
-            appleScript = [NSString stringWithFormat:@"tell application \"Safari\" to set URL of current tab of front window to \"%@\"", vibesUrl];
-        } 
-        else if ([bundleId isEqualToString:@"com.google.Chrome"] || 
-                 [bundleId isEqualToString:@"com.google.Chrome.canary"] || 
-                 [bundleId isEqualToString:@"com.google.Chrome.beta"]) {
-            appleScript = [NSString stringWithFormat:@"tell application \"Google Chrome\" to set URL of active tab of front window to \"%@\"", vibesUrl];
-        }
-        else if ([bundleId isEqualToString:@"com.microsoft.Edge"]) {
-            appleScript = [NSString stringWithFormat:@"tell application \"Microsoft Edge\" to set URL of active tab of front window to \"%@\"", vibesUrl];
-        }
-        else if ([bundleId isEqualToString:@"company.thebrowser.Browser"]) {
-            appleScript = [NSString stringWithFormat:@"tell application \"Arc\" to set URL of active tab of front window to \"%@\"", vibesUrl];
-        }
-        else {
+        // Check if this is a supported browser
+        if (!isSupportedBrowser(bundleId)) {
             NSLog(@"Unsupported browser: %@", bundleId);
             return NO;
         }
         
-        // Execute the AppleScript asynchronously
-        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-            NSLog(@"Executing AppleScript on background thread");
-            NSAppleScript *script = [[NSAppleScript alloc] initWithSource:appleScript];
-            NSDictionary *error = nil;
-            [script executeAndReturnError:&error];
+        // Create AXUIElement for the application
+        AXUIElementRef appElement = AXUIElementCreateApplication(frontApp.processIdentifier);
+        if (!appElement) {
+            NSLog(@"Failed to create AX element for app");
+            return NO;
+        }
+        
+        // Find the window
+        AXUIElementRef window = NULL;
+        AXError axError = AXUIElementCopyAttributeValue(appElement, kAXFocusedWindowAttribute, (CFTypeRef *)&window);
+        
+        if (axError != kAXErrorSuccess || !window) {
+            // Try to get the first window
+            CFArrayRef windowArray = NULL;
+            axError = AXUIElementCopyAttributeValues(appElement, kAXWindowsAttribute, 0, 1, &windowArray);
             
-            if (error) {
-                NSLog(@"AppleScript error: %@", error);
-            } else {
-                NSLog(@"Redirected to vibes page");
+            if (axError == kAXErrorSuccess && windowArray) {
+                if (CFArrayGetCount(windowArray) > 0) {
+                    window = (AXUIElementRef)CFRetain(CFArrayGetValueAtIndex(windowArray, 0));
+                }
+                CFRelease(windowArray);
             }
+        }
+        
+        if (!window) {
+            NSLog(@"Could not find browser window (AX error: %d)", axError);
+            CFRelease(appElement);
+            return NO;
+        }
+        
+        // Dispatch the rest of the work to avoid blocking
+        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+            // Find the URL field
+            AXUIElementRef urlField = findURLFieldInElement(window);
+            __block AXError blockAxError;
+            
+            if (urlField) {
+                NSLog(@"Found URL field, setting focus");
+                // Focus the URL field
+                AXUIElementSetAttributeValue(urlField, kAXFocusedAttribute, kCFBooleanTrue);
+                usleep(100000); // 100ms delay
+                
+                // Select all text (Cmd+A)
+                simulateKeyPress(0, kCGEventFlagMaskCommand); // 'A' key with Command
+                usleep(50000); // 50ms delay
+                
+                // Set the URL
+                NSLog(@"Setting URL to: %@", vibesUrl);
+                blockAxError = AXUIElementSetAttributeValue(urlField, kAXValueAttribute, (__bridge CFTypeRef)vibesUrl);
+                
+                if (blockAxError == kAXErrorSuccess) {
+                    NSLog(@"Successfully set URL, pressing Enter");
+                    usleep(100000); // 100ms delay
+                    // Press Enter to navigate
+                    simulateKeyPress(36, 0); // Return key
+                } else {
+                    NSLog(@"Failed to set URL (AX error: %d)", blockAxError);
+                    
+                    // Fallback: try key sequence instead
+                    // Press Cmd+L to focus address bar
+                    simulateKeyPress(37, kCGEventFlagMaskCommand); // Cmd+L
+                    usleep(100000); // 100ms delay
+                    
+                    // Type the URL (not implemented here, would need character-by-character simulation)
+                    // For simplicity, we'll just use the clipboard
+                    NSPasteboard *pasteboard = [NSPasteboard generalPasteboard];
+                    [pasteboard clearContents];
+                    [pasteboard writeObjects:@[vibesUrl]];
+                    usleep(50000); // 50ms delay
+                    
+                    // Press Cmd+V to paste
+                    simulateKeyPress(9, kCGEventFlagMaskCommand); // Cmd+V
+                    usleep(100000); // 100ms delay
+                    
+                    // Press Enter
+                    simulateKeyPress(36, 0); // Return key
+                }
+                
+                CFRelease(urlField);
+            } else {
+                NSLog(@"Could not find URL field, trying fallback approach");
+                
+                // Fallback: try key sequence
+                // Press Cmd+L to focus address bar
+                simulateKeyPress(37, kCGEventFlagMaskCommand); // Cmd+L
+                usleep(100000); // 100ms delay
+                
+                // Use clipboard to set URL
+                NSPasteboard *pasteboard = [NSPasteboard generalPasteboard];
+                [pasteboard clearContents];
+                [pasteboard writeObjects:@[vibesUrl]];
+                usleep(50000); // 50ms delay
+                
+                // Press Cmd+V to paste
+                simulateKeyPress(9, kCGEventFlagMaskCommand); // Cmd+V
+                usleep(100000); // 100ms delay
+                
+                // Press Enter
+                simulateKeyPress(36, 0); // Return key
+            }
+            
+            CFRelease(window);
+            CFRelease(appElement);
         });
         
-        // Return immediately while the script executes in the background
         return YES;
     }
 } 
