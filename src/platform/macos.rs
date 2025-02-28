@@ -82,6 +82,9 @@ fn detect_focused_window() {
 
 /// Checks if the current URL is blocked and redirects if necessary
 fn check_and_block_url() {
+    // Add a timeout to prevent hanging
+    let now = std::time::Instant::now();
+
     unsafe {
         let window_title = bindings::detect_focused_window();
         if window_title.is_null() {
@@ -90,10 +93,20 @@ fn check_and_block_url() {
 
         // Check if the URL is blocked
         if let Some(url) = (*window_title).get_url() {
+            // Add debug logging
+            log::info!("Checking URL: {}", url);
+
+            // Check for timeout
+            if now.elapsed() > std::time::Duration::from_secs(5) {
+                log::error!("URL checking timed out - aborting");
+                return;
+            }
+
             let c_url = CString::new(url.clone()).unwrap();
             if bindings::is_url_blocked(c_url.as_ptr()) {
                 log::info!("URL is blocked, redirecting to vibes page: {}", url);
-                bindings::redirect_to_vibes_page();
+                let redirect_result = bindings::redirect_to_vibes_page();
+                log::info!("Redirect result: {}", redirect_result);
             }
         }
     }
@@ -111,8 +124,15 @@ extern "C" fn keyboard_event_callback(keycode: i32) {
 
     // Check if Enter key was pressed (keycode 36)
     if keycode == 36 {
-        // Immediate check
-        check_and_block_url();
+        std::thread::spawn(|| {
+            std::thread::sleep(std::time::Duration::from_millis(50));
+            check_and_block_url();
+
+            std::thread::spawn(|| {
+                std::thread::sleep(std::time::Duration::from_millis(1000));
+                check_and_block_url();
+            });
+        });
     }
 }
 
@@ -210,5 +230,14 @@ pub(crate) fn platform_start_site_blocking(urls: &[String], redirect_url: &str) 
 pub(crate) fn platform_stop_site_blocking() {
     unsafe {
         bindings::stop_site_blocking();
+    }
+}
+
+pub(crate) fn platform_request_automation_permission(bundle_id: &str) -> bool {
+    unsafe {
+        match CString::new(bundle_id) {
+            Ok(c_bundle_id) => bindings::request_automation_permission(c_bundle_id.as_ptr()),
+            Err(_) => false,
+        }
     }
 }

@@ -14,6 +14,7 @@ AXUIElementRef findURLFieldInElement(AXUIElementRef element, NSString *bundleId)
 BOOL isChromiumBrowser(NSString *bundleId);
 BOOL isSafari(NSString *bundleId);
 BOOL isArc(NSString *bundleId);
+void fallbackNavigation(NSString *url);
 
 // Simulate a key press
 void simulateKeyPress(CGKeyCode keyCode, CGEventFlags flags) {
@@ -192,6 +193,73 @@ BOOL is_url_blocked(const char* url) {
     }
 }
 
+// Add this function to redirect using AppleScript
+BOOL redirectUsingAppleScript(NSString *browserBundleId, NSString *targetUrl) {
+    NSString *scriptText = nil;
+    NSString *browserName = nil;
+    
+    // Determine which browser is active and set the appropriate script
+    if ([browserBundleId isEqualToString:@"com.apple.Safari"]) {
+        browserName = @"Safari";
+        scriptText = [NSString stringWithFormat:@"tell application \"%@\" to set URL of front document to \"%@\"", 
+                      browserName, targetUrl];
+    }
+    else if ([browserBundleId isEqualToString:@"com.google.Chrome"]) {
+        browserName = @"Google Chrome";
+        scriptText = [NSString stringWithFormat:@"tell application \"%@\" to set URL of active tab of front window to \"%@\"", 
+                      browserName, targetUrl];
+    }
+    else if ([browserBundleId isEqualToString:@"org.mozilla.firefox"]) {
+        browserName = @"Firefox";
+        // Firefox has limited AppleScript support but can open URLs
+        scriptText = [NSString stringWithFormat:@"tell application \"%@\" to open location \"%@\"", 
+                      browserName, targetUrl];
+    }
+    else if ([browserBundleId isEqualToString:@"com.microsoft.edgemac"]) {
+        browserName = @"Microsoft Edge";
+        scriptText = [NSString stringWithFormat:@"tell application \"%@\" to set URL of active tab of front window to \"%@\"", 
+                      browserName, targetUrl];
+    }
+    else if ([browserBundleId isEqualToString:@"company.thebrowser.Browser"]) {
+        browserName = @"Arc";
+        scriptText = [NSString stringWithFormat:@"tell application \"%@\" to set URL of active tab of front window to \"%@\"", 
+                      browserName, targetUrl];
+    }
+    else {
+        return NO; // Unsupported browser
+    }
+    
+    if (!scriptText || !browserName) {
+        return NO;
+    }
+
+    NSLog(@"Running AppleScript for %@: %@", browserName, scriptText);
+    
+    NSAppleScript *script = [[NSAppleScript alloc] initWithSource:scriptText];
+    NSDictionary *errorInfo = nil;
+    NSAppleEventDescriptor *result = [script executeAndReturnError:&errorInfo];
+    
+    if (errorInfo) {
+        NSLog(@"AppleScript error: %@", errorInfo);
+        return NO;
+    }
+    
+    NSLog(@"AppleScript executed successfully: %@", result);
+    return YES;
+}
+
+// Check if the app has automation permissions
+BOOL hasAutomationPermission(NSString *bundleId) {
+    NSAppleScript *testScript = [[NSAppleScript alloc] initWithSource:
+                                [NSString stringWithFormat:@"tell application id \"%@\" to return name", bundleId]];
+    NSDictionary *errorInfo = nil;
+    [testScript executeAndReturnError:&errorInfo];
+    
+    // If there's no error, we have permission
+    return (errorInfo == nil);
+}
+
+// Function to modify the existing redirect_to_vibes_page
 BOOL redirect_to_vibes_page(void) {
     @autoreleasepool {
         NSLog(@"Redirecting to vibes page");
@@ -210,94 +278,82 @@ BOOL redirect_to_vibes_page(void) {
             return NO;
         }
         
-        // Create AXUIElement for the application
-        AXUIElementRef appElement = AXUIElementCreateApplication(frontApp.processIdentifier);
-        if (!appElement) {
-            NSLog(@"Failed to create AX element for app");
-            return NO;
-        }
-        
-        // Find the window
-        AXUIElementRef window = NULL;
-        AXError axError = AXUIElementCopyAttributeValue(appElement, kAXFocusedWindowAttribute, (CFTypeRef *)&window);
-        
-        if (axError != kAXErrorSuccess || !window) {
-            // Try to get the first window
-            CFArrayRef windowArray = NULL;
-            axError = AXUIElementCopyAttributeValues(appElement, kAXWindowsAttribute, 0, 1, &windowArray);
-            
-            if (axError == kAXErrorSuccess && windowArray) {
-                if (CFArrayGetCount(windowArray) > 0) {
-                    window = (AXUIElementRef)CFRetain(CFArrayGetValueAtIndex(windowArray, 0));
-                }
-                CFRelease(windowArray);
-            }
-        }
-        
-        if (!window) {
-            NSLog(@"Could not find browser window (AX error: %d)", axError);
-            CFRelease(appElement);
-            return NO;
-        }
-        
-
-        // Dispatch the rest of the work to avoid blocking
+        // Important: Move the redirection to a background queue to avoid blocking
         dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-            // Find the URL field - pass the bundle ID to the function
-            AXUIElementRef urlField = findURLFieldInElement(window, bundleId);
-            printAttributes(urlField, 0, 1);
-            NSLog(@"urlField: %@", urlField);
-            __block AXError blockAxError;
-
-            if (!urlField) {
-                NSLog(@"Could not find URL field");
-                CFRelease(window);
+            // Try AppleScript redirection first (if we have automation permission)
+            if (hasAutomationPermission(bundleId)) {
+                if (redirectUsingAppleScript(bundleId, vibesUrl)) {
+                    NSLog(@"Successfully redirected using AppleScript");
+                    return;
+                }
+            }
+            
+            // Fall back to accessibility API if AppleScript fails
+            NSLog(@"AppleScript redirection failed, falling back to accessibility API");
+            
+            // Create AXUIElement for the application
+            AXUIElementRef appElement = AXUIElementCreateApplication(frontApp.processIdentifier);
+            if (!appElement) {
+                NSLog(@"Failed to create AX element for app");
+                return;
+            }
+            
+            // Find the window
+            AXUIElementRef window = NULL;
+            AXError axError = AXUIElementCopyAttributeValue(appElement, kAXFocusedWindowAttribute, (CFTypeRef *)&window);
+            
+            if (axError != kAXErrorSuccess || !window) {
+                // Try to get the first window
+                CFArrayRef windowArray = NULL;
+                axError = AXUIElementCopyAttributeValues(appElement, kAXWindowsAttribute, 0, 1, &windowArray);
+                
+                if (axError == kAXErrorSuccess && windowArray) {
+                    if (CFArrayGetCount(windowArray) > 0) {
+                        window = (AXUIElementRef)CFRetain(CFArrayGetValueAtIndex(windowArray, 0));
+                    }
+                    CFRelease(windowArray);
+                }
+            }
+            
+            if (!window) {
+                NSLog(@"Could not find browser window (AX error: %d)", axError);
                 CFRelease(appElement);
                 return;
             }
             
-            NSLog(@"Found URL field, setting focus");
-            // Focus the URL field
-            AXUIElementSetAttributeValue(urlField, kAXFocusedAttribute, kCFBooleanTrue);
-            usleep(100000); // 100ms delay
+            // Find the URL field
+            AXUIElementRef urlField = findURLFieldInElement(window, bundleId);
             
-            // Select all text (Cmd+A)
-            simulateKeyPress(0, kCGEventFlagMaskCommand); // 'A' key with Command
-            usleep(50000); // 50ms delay
-            
-            // Set the URL
-            NSLog(@"Setting URL to: %@", vibesUrl);
-            blockAxError = AXUIElementSetAttributeValue(urlField, kAXValueAttribute, (__bridge CFTypeRef)vibesUrl);
-            
-            if (blockAxError == kAXErrorSuccess) {
-                NSLog(@"Successfully set URL, pressing Enter");
-                usleep(100000); // 100ms delay
-                // Press Enter to navigate
-                simulateKeyPress(36, 0); // Return key
-            } else {
-                NSLog(@"Failed to set URL (AX error: %d)", blockAxError);
-                
-                // Fallback: try key sequence instead
-                // Press Cmd+L to focus address bar
-                simulateKeyPress(37, kCGEventFlagMaskCommand); // Cmd+L
+            if (urlField) {
+                NSLog(@"Found URL field, setting focus");
+                // Focus the URL field
+                AXUIElementSetAttributeValue(urlField, kAXFocusedAttribute, kCFBooleanTrue);
                 usleep(100000); // 100ms delay
                 
-                // Type the URL (not implemented here, would need character-by-character simulation)
-                // For simplicity, we'll just use the clipboard
-                NSPasteboard *pasteboard = [NSPasteboard generalPasteboard];
-                [pasteboard clearContents];
-                [pasteboard writeObjects:@[vibesUrl]];
+                // Select all text (Cmd+A)
+                simulateKeyPress(0, kCGEventFlagMaskCommand); // 'A' key with Command
                 usleep(50000); // 50ms delay
                 
-                // Press Cmd+V to paste
-                simulateKeyPress(9, kCGEventFlagMaskCommand); // Cmd+V
-                usleep(100000); // 100ms delay
+                // Set the URL
+                NSLog(@"Setting URL to: %@", vibesUrl);
+                axError = AXUIElementSetAttributeValue(urlField, kAXValueAttribute, (__bridge CFTypeRef)vibesUrl);
                 
-                // Press Enter
-                simulateKeyPress(36, 0); // Return key
+                if (axError == kAXErrorSuccess) {
+                    NSLog(@"Successfully set URL, pressing Enter");
+                    usleep(100000); // 100ms delay
+                    // Press Enter to navigate
+                    simulateKeyPress(36, 0); // Return key
+                } else {
+                    // Fallback approach
+                    NSLog(@"Failed to set URL (AX error: %d), using fallback", axError);
+                    fallbackNavigation(vibesUrl);
+                }
+                
+                CFRelease(urlField);
+            } else {
+                NSLog(@"Could not find URL field, trying fallback approach");
+                fallbackNavigation(vibesUrl);
             }
-            
-            CFRelease(urlField);
             
             CFRelease(window);
             CFRelease(appElement);
@@ -305,4 +361,41 @@ BOOL redirect_to_vibes_page(void) {
         
         return YES;
     }
+}
+
+// Add this helper method to clean up the code
+void fallbackNavigation(NSString *url) {
+    // Press Cmd+L to focus address bar
+    simulateKeyPress(37, kCGEventFlagMaskCommand); // Cmd+L
+    usleep(100000); // 100ms delay
+    
+    // Use clipboard to set URL
+    NSPasteboard *pasteboard = [NSPasteboard generalPasteboard];
+    [pasteboard clearContents];
+    [pasteboard writeObjects:@[url]];
+    usleep(50000); // 50ms delay
+    
+    // Press Cmd+V to paste
+    simulateKeyPress(9, kCGEventFlagMaskCommand); // Cmd+V
+    usleep(100000); // 100ms delay
+    
+    // Press Enter
+    simulateKeyPress(36, 0); // Return key
+}
+
+// Function to request automation permission
+BOOL request_automation_permission(const char* bundle_id) {
+    if (!bundle_id) return NO;
+    
+    NSString *bundleIdStr = [NSString stringWithUTF8String:bundle_id];
+    
+    // Create a simple AppleScript that will trigger the permission prompt
+    NSString *scriptText = [NSString stringWithFormat:@"tell application id \"%@\" to return name", bundleIdStr];
+    NSAppleScript *script = [[NSAppleScript alloc] initWithSource:scriptText];
+    
+    NSDictionary *errorInfo = nil;
+    [script executeAndReturnError:&errorInfo];
+    
+    // Check if we now have permission
+    return hasAutomationPermission(bundleIdStr);
 } 

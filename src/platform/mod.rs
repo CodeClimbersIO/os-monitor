@@ -39,3 +39,7 @@ pub fn start_site_blocking(urls: &[String], redirect_url: &str) -> bool {
 pub fn stop_site_blocking() {
     platform_stop_site_blocking()
 }
+
+pub fn request_automation_permission(bundle_id: &str) -> bool {
+    platform_request_automation_permission(bundle_id)
+}

@@ -13,4 +13,7 @@ BOOL handle_enter_key_for_site_blocking(void);
 BOOL redirect_to_vibes_page(void);
 
 // Check if a URL is in the blocked list
-BOOL is_url_blocked(const char* url); 
+BOOL is_url_blocked(const char* url);
+
+// Add this function declaration to SiteBlocker.h
+BOOL request_automation_permission(const char* bundle_id); 

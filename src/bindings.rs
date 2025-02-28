@@ -61,6 +61,7 @@ extern "C" {
     pub fn stop_site_blocking();
     pub fn is_url_blocked(url: *const c_char) -> bool;
     pub fn redirect_to_vibes_page() -> bool;
+    pub fn request_automation_permission(bundle_id: *const c_char) -> bool;
 }
 
 #[cfg(target_os = "windows")]
