@@ -13,9 +13,13 @@ AXUIElementRef findUrlElement(AXUIElementRef element);
 void printAttributes(AXUIElementRef element, int depth, int maxDepth);
 BOOL isSupportedBrowser(NSString *bundleId);
 
+@class AccessibilityElement;
+
 @interface AppWindow : NSObject
 @property(nonatomic) AXUIElementRef axUIElement;
+@property(nonatomic, strong) AccessibilityElement *accessibilityElement;
 - (instancetype)initWithAXUIElement:(AXUIElementRef)element;
+- (instancetype)initWithAccessibilityElement:(AccessibilityElement *)element;
 - (NSString *)title;
 - (NSString *)url;
 @end
@@ -23,6 +27,7 @@ BOOL isSupportedBrowser(NSString *bundleId);
 @interface FocusedApp : NSObject
 @property(nonatomic) AXUIElementRef axUIElement;
 @property(nonatomic, strong) NSRunningApplication *runningApplication;
+@property(nonatomic, strong) AccessibilityElement *accessibilityElement;
 + (instancetype)frontmostApp;
 + (NSRunningApplication *)getFrontmostApp;
 - (instancetype)initWithRunningApplication:(NSRunningApplication *)app;

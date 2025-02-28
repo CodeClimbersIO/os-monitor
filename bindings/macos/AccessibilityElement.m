@@ -143,9 +143,49 @@
   return @[];
 }
 
-- (AXUIElementRef)findURLFieldInElementForBrowser:(NSString *)bundleId {
+/**
+ * Find the URL element in the given accessibility element. Recursively searches
+ * through children. Assumes that the URL element is a static text or a text
+ * field.
+ * @param element The accessibility element to search
+ * @return The URL element if found, otherwise nil
+ */
+- (AccessibilityElement *)findUrlElement {
+  if (!self)
+    return nil;
+
+  NSString *role = [self role];
+
+  if ([role isEqualToString:NSAccessibilityStaticTextRole] ||
+      [role isEqualToString:NSAccessibilityTextFieldRole]) {
+    NSString *value = [self value];
+    if (value && isDomain(value)) {
+      return self;
+    }
+  }
+
+  NSArray *children = [self children];
+  for (id child in children) {
+    AccessibilityElement *childElement = [[AccessibilityElement alloc]
+        initWithAXUIElement:(__bridge AXUIElementRef)child];
+    AccessibilityElement *urlElement = [childElement findUrlElement];
+    if (urlElement != nil) {
+      return urlElement;
+    }
+  }
+
+  return nil;
+}
+
+/**
+ * Find the URL field in the given accessibility element. Recursively searches
+ * through children. Meant to be used to find the address bar in a browser.
+ * @param bundleId The bundle ID of the browser
+ * @return The URL field if found, otherwise nil
+ */
+- (AccessibilityElement *)findAddressBarForBrowser:(NSString *)bundleId {
   if (!_axUIElement)
-    return NULL;
+    return nil;
 
   // Get the role
   NSString *role = [self role];
@@ -169,9 +209,8 @@
           if ([description rangeOfString:identifier
                                  options:NSCaseInsensitiveSearch]
                   .location != NSNotFound) {
-            CFRetain(
-                _axUIElement); // Retain it since we'll pass it to the caller
-            return _axUIElement;
+            return
+                [[AccessibilityElement alloc] initWithAXUIElement:_axUIElement];
           }
         }
       }
@@ -184,8 +223,7 @@
     if (value &&
         ([value hasPrefix:@"http://"] || [value hasPrefix:@"https://"] ||
          [value hasPrefix:@"www."] || [value containsString:@"."])) {
-      CFRetain(_axUIElement);
-      return _axUIElement;
+      return [[AccessibilityElement alloc] initWithAXUIElement:_axUIElement];
     }
   } else if (isArc(bundleId)) {
     NSLog(@"Arc browser detected");
@@ -195,8 +233,7 @@
 
     // Check if this is the URL field based on the identifier
     if ([identifier isEqualToString:@"commandBarPlaceholderTextField"]) {
-      CFRetain(_axUIElement); // Retain it since we'll pass it to the caller
-      return _axUIElement;
+      return [[AccessibilityElement alloc] initWithAXUIElement:_axUIElement];
     }
   }
 
@@ -205,14 +242,43 @@
   for (id child in children) {
     AccessibilityElement *childElement = [[AccessibilityElement alloc]
         initWithAXUIElement:(__bridge AXUIElementRef)child];
-    AXUIElementRef urlField =
-        [childElement findURLFieldInElementForBrowser:bundleId];
+    AccessibilityElement *urlField =
+        [childElement findAddressBarForBrowser:bundleId];
     if (urlField) {
       return urlField;
     }
   }
 
-  return NULL;
+  return nil;
+}
+
+- (NSString *)title {
+  CFStringRef titleRef;
+  if (AXUIElementCopyAttributeValue(_axUIElement, kAXTitleAttribute,
+                                    (CFTypeRef *)&titleRef) ==
+      kAXErrorSuccess) {
+    return (__bridge_transfer NSString *)titleRef;
+  }
+  return nil;
+}
+
+- (AccessibilityElement *)valueForAttribute:(CFStringRef)attribute {
+  CFTypeRef valueRef;
+  AXError error =
+      AXUIElementCopyAttributeValue(_axUIElement, attribute, &valueRef);
+
+  if (error == kAXErrorSuccess) {
+    if (CFGetTypeID(valueRef) == AXUIElementGetTypeID()) {
+      AccessibilityElement *element = [[AccessibilityElement alloc]
+          initWithAXUIElement:(AXUIElementRef)valueRef];
+      CFRelease(valueRef);
+      return element;
+    } else {
+      CFRelease(valueRef);
+    }
+  }
+
+  return nil;
 }
 
 @end

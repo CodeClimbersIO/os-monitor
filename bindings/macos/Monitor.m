@@ -73,6 +73,10 @@ CGEventRef eventCallback(CGEventTapProxy proxy, CGEventType type,
                                   scrollDelta);
     }
     break;
+
+  default:
+    // Handle any other event types or just do nothing
+    break;
   }
 
   return event;

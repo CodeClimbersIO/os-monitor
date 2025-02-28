@@ -333,8 +333,8 @@ BOOL redirect_to_vibes_page(void) {
               [[AccessibilityElement alloc] initWithAXUIElement:windowElement];
 
           // Use the AccessibilityElement class to find the URL field
-          AccessibilityElement *urlFieldElement = [windowAccessibilityElement
-              findURLFieldInElementForBrowser:bundleId];
+          AccessibilityElement *urlFieldElement =
+              [windowAccessibilityElement findAddressBarForBrowser:bundleId];
           AXUIElementRef urlField = urlFieldElement.axUIElement;
 
           if (urlField) {

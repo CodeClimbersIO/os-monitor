@@ -1,4 +1,5 @@
 #import "Application.h"
+#import "AccessibilityElement.h"
 #import "AccessibilityUtils.h"
 #import <ApplicationServices/ApplicationServices.h>
 
@@ -21,55 +22,6 @@ BOOL isDomain(NSString *str) {
   return matches.count > 0;
 }
 
-/**
- * Find the URL element in the given accessibility element. Recursively searches
- * through children. Assumes that the URL element is a static text or a text
- * field.
- * TODO: future versions might need to search specifically based on the browser
- * @param element The accessibility element to search
- * @return The URL element if found, otherwise NULL
- */
-AXUIElementRef findUrlElement(AXUIElementRef element) {
-  if (!element)
-    return NULL;
-
-  CFStringRef roleRef;
-  AXUIElementCopyAttributeValue(element, kAXRoleAttribute,
-                                (CFTypeRef *)&roleRef);
-  NSString *role = (__bridge_transfer NSString *)roleRef;
-
-  if ([role isEqualToString:NSAccessibilityStaticTextRole] ||
-      [role isEqualToString:NSAccessibilityTextFieldRole]) {
-    CFTypeRef valueRef;
-    AXError error =
-        AXUIElementCopyAttributeValue(element, kAXValueAttribute, &valueRef);
-    if (error == kAXErrorSuccess) {
-      NSString *value = (__bridge_transfer NSString *)valueRef;
-      if (isDomain(value)) {
-        CFRetain(element);
-        return element;
-      }
-    }
-  }
-
-  CFArrayRef childrenRef;
-  AXError childrenError = AXUIElementCopyAttributeValue(
-      element, kAXChildrenAttribute, (CFTypeRef *)&childrenRef);
-
-  if (childrenError == kAXErrorSuccess) {
-    NSArray *children = (__bridge_transfer NSArray *)childrenRef;
-    for (id child in children) {
-      AXUIElementRef urlElement =
-          findUrlElement((__bridge AXUIElementRef)child);
-      if (urlElement != NULL) {
-        return urlElement;
-      }
-    }
-  }
-
-  return NULL;
-}
-
 BOOL isSupportedBrowser(NSString *bundleId) {
   return [bundleId isEqualToString:@"com.apple.Safari"] ||
          [bundleId isEqualToString:@"com.google.Chrome"] ||
@@ -81,44 +33,38 @@ BOOL isSupportedBrowser(NSString *bundleId) {
 
 @implementation AppWindow
 
-- (instancetype)initWithAXUIElement:(AXUIElementRef)element {
+- (instancetype)initWithAccessibilityElement:(AccessibilityElement *)element {
   self = [super init];
   if (self) {
-    _axUIElement = element;
-    CFRetain(_axUIElement);
+    _accessibilityElement = element;
   }
   return self;
 }
 
+- (instancetype)initWithAXUIElement:(AXUIElementRef)element {
+  AccessibilityElement *accessibilityElement =
+      [[AccessibilityElement alloc] initWithAXUIElement:element];
+  return [self initWithAccessibilityElement:accessibilityElement];
+}
+
 - (void)dealloc {
-  if (_axUIElement) {
-    CFRelease(_axUIElement);
-  }
+  // AccessibilityElement will handle releasing the AXUIElement
 }
 
 - (NSString *)title {
-  CFTypeRef windowTitle;
-  AXError result = AXUIElementCopyAttributeValue(
-      _axUIElement, kAXTitleAttribute, &windowTitle);
-
-  if (result == kAXErrorSuccess) {
-    NSString *title = (__bridge_transfer NSString *)windowTitle;
-    return title;
-  }
-
-  return nil;
+  return [_accessibilityElement title];
 }
 
 - (NSString *)url {
-  AXUIElementRef urlElement = findUrlElement(_axUIElement);
+  AccessibilityElement *urlElement = [_accessibilityElement findUrlElement];
   if (urlElement) {
-    CFTypeRef valueRef;
-    AXUIElementCopyAttributeValue(urlElement, kAXValueAttribute, &valueRef);
-    NSString *url = (__bridge_transfer NSString *)valueRef;
-    CFRelease(urlElement);
-    return url;
+    return [urlElement value];
   }
   return nil;
+}
+
+- (AXUIElementRef)axUIElement {
+  return _accessibilityElement.axUIElement;
 }
 
 @end
@@ -174,15 +120,17 @@ BOOL isSupportedBrowser(NSString *bundleId) {
   self = [super init];
   if (self) {
     _runningApplication = app;
-    _axUIElement = AXUIElementCreateApplication(app.processIdentifier);
+    AXUIElementRef axElement =
+        AXUIElementCreateApplication(app.processIdentifier);
+    _accessibilityElement =
+        [[AccessibilityElement alloc] initWithAXUIElement:axElement];
+    CFRelease(axElement); // AccessibilityElement retains it
   }
   return self;
 }
 
 - (void)dealloc {
-  if (_axUIElement) {
-    CFRelease(_axUIElement);
-  }
+  // AccessibilityElement will handle releasing the AXUIElement
 }
 
 - (NSString *)appName {
@@ -194,18 +142,16 @@ BOOL isSupportedBrowser(NSString *bundleId) {
 }
 
 - (AppWindow *)focusedWindow {
-  AXUIElementRef focusedWindow;
-  AXError result = AXUIElementCopyAttributeValue(
-      _axUIElement, kAXFocusedWindowAttribute, (CFTypeRef *)&focusedWindow);
+  AccessibilityElement *focusedWindowElement =
+      [_accessibilityElement valueForAttribute:kAXFocusedWindowAttribute];
 
-  if (result != kAXErrorSuccess) {
-    NSLog(@"Failed to get focused window: %@ (error code: %d)",
-          getAXErrorDescription(result), result);
+  if (!focusedWindowElement) {
+    NSLog(@"Failed to get focused window");
     return nil;
   }
 
-  AppWindow *window = [[AppWindow alloc] initWithAXUIElement:focusedWindow];
-  CFRelease(focusedWindow);
+  AppWindow *window =
+      [[AppWindow alloc] initWithAccessibilityElement:focusedWindowElement];
   return window;
 }
 
@@ -234,6 +180,10 @@ BOOL isSupportedBrowser(NSString *bundleId) {
   }
 
   return NULL;
+}
+
+- (AXUIElementRef)axUIElement {
+  return _accessibilityElement.axUIElement;
 }
 
 @end
