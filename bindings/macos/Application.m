@@ -22,33 +22,16 @@ BOOL isDomain(NSString *str) {
   return matches.count > 0;
 }
 
-BOOL isSupportedBrowser(NSString *bundleId) {
-  return [bundleId isEqualToString:@"com.apple.Safari"] ||
-         [bundleId isEqualToString:@"com.google.Chrome"] ||
-         [bundleId isEqualToString:@"com.microsoft.Edge"] ||
-         [bundleId isEqualToString:@"com.google.Chrome.canary"] ||
-         [bundleId isEqualToString:@"com.google.Chrome.beta"] ||
-         [bundleId isEqualToString:@"company.thebrowser.Browser"];
-}
-
 @implementation AppWindow
 
-- (instancetype)initWithAccessibilityElement:(AccessibilityElement *)element {
+- (instancetype)initWithAccessibilityElement:(AccessibilityElement *)element
+                                   parentApp:(FocusedApp *)parentApp {
   self = [super init];
   if (self) {
     _accessibilityElement = element;
+    _parentApp = parentApp;
   }
   return self;
-}
-
-- (instancetype)initWithAXUIElement:(AXUIElementRef)element {
-  AccessibilityElement *accessibilityElement =
-      [[AccessibilityElement alloc] initWithAXUIElement:element];
-  return [self initWithAccessibilityElement:accessibilityElement];
-}
-
-- (void)dealloc {
-  // AccessibilityElement will handle releasing the AXUIElement
 }
 
 - (NSString *)title {
@@ -56,15 +39,142 @@ BOOL isSupportedBrowser(NSString *bundleId) {
 }
 
 - (NSString *)url {
-  AccessibilityElement *urlElement = [_accessibilityElement findUrlElement];
+  AccessibilityElement *urlElement = [self findUrlElement];
   if (urlElement) {
     return [urlElement value];
   }
   return nil;
 }
 
-- (AXUIElementRef)axUIElement {
-  return _accessibilityElement.axUIElement;
+/**
+ * Find the URL element in the given accessibility element. Recursively searches
+ * through children. Assumes that the URL element is a static text or a text
+ * field.
+ * @return The URL element if found, otherwise nil
+ */
+- (AccessibilityElement *)findUrlElement {
+  return [self findUrlElementInElement:_accessibilityElement];
+}
+
+/**
+ * Helper method to recursively search for URL element
+ * @param element The accessibility element to search
+ * @return The URL element if found, otherwise nil
+ */
+- (AccessibilityElement *)findUrlElementInElement:
+    (AccessibilityElement *)element {
+  if (!element)
+    return nil;
+
+  NSString *role = [element role];
+
+  if ([role isEqualToString:NSAccessibilityStaticTextRole] ||
+      [role isEqualToString:NSAccessibilityTextFieldRole]) {
+    NSString *value = [element value];
+    if (value && isDomain(value)) {
+      return element;
+    }
+  }
+
+  NSArray *children = [element children];
+  for (id child in children) {
+    AccessibilityElement *childElement = [[AccessibilityElement alloc]
+        initWithAXUIElement:(__bridge AXUIElementRef)child];
+    AccessibilityElement *urlElement =
+        [self findUrlElementInElement:childElement];
+    if (urlElement != nil) {
+      return urlElement;
+    }
+  }
+
+  return nil;
+}
+
+/**
+ * Find the URL field in the given accessibility element. Recursively searches
+ * through children. Meant to be used to find the address bar in a browser.
+ * @return The URL field if found, otherwise nil
+ */
+- (AccessibilityElement *)findAddressBar {
+  return [self findAddressBarInElement:_accessibilityElement];
+}
+
+/**
+ * Helper method to recursively search for address bar
+ * @param element The accessibility element to search
+ * @return The address bar element if found, otherwise nil
+ */
+- (AccessibilityElement *)findAddressBarInElement:
+    (AccessibilityElement *)element {
+  if (!element.axUIElement)
+    return nil;
+
+  // Get the role
+  NSString *role = [element role];
+
+  // Print attributes for debugging
+  [element printAttributes];
+
+  // Use description approach for Chromium-based browsers
+  if ([_parentApp isChromiumBrowser]) {
+    if ([role isEqualToString:NSAccessibilityTextFieldRole]) {
+      // Get the description
+      NSString *description = [element description];
+
+      if (description) {
+        // Check if this is a URL field based on its description
+        NSArray *urlIdentifiers = @[
+          @"Address", @"URL", @"Location", @"Address and search bar",
+          @"address field"
+        ];
+        for (NSString *identifier in urlIdentifiers) {
+          if ([description rangeOfString:identifier
+                                 options:NSCaseInsensitiveSearch]
+                  .location != NSNotFound) {
+            return element;
+          }
+        }
+      }
+    }
+    // Safari-specific approach
+  } else if ([_parentApp isSafari]) {
+    NSString *value = [element value];
+
+    // Check if the value looks like a URL
+    if (value &&
+        ([value hasPrefix:@"http://"] || [value hasPrefix:@"https://"] ||
+         [value hasPrefix:@"www."] || [value containsString:@"."])) {
+      return element;
+    }
+  } else if ([_parentApp isArc]) {
+    NSLog(@"Arc browser detected");
+
+    // Check for the identifier attribute
+    NSString *identifier = [element identifier];
+
+    // Check if this is the URL field based on the identifier
+    if ([identifier isEqualToString:@"commandBarPlaceholderTextField"]) {
+      return element;
+    }
+  }
+
+  // Recursively search children
+  NSArray *children = [element children];
+  for (id child in children) {
+    AccessibilityElement *childElement = [[AccessibilityElement alloc]
+        initWithAXUIElement:(__bridge AXUIElementRef)child];
+    AccessibilityElement *urlField =
+        [self findAddressBarInElement:childElement];
+    if (urlField) {
+      return urlField;
+    }
+  }
+
+  return nil;
+}
+
+- (AccessibilityElement *)accessibilityElement {
+  return _accessibilityElement;
 }
 
 @end
@@ -129,10 +239,6 @@ BOOL isSupportedBrowser(NSString *bundleId) {
   return self;
 }
 
-- (void)dealloc {
-  // AccessibilityElement will handle releasing the AXUIElement
-}
-
 - (NSString *)appName {
   return _runningApplication.localizedName;
 }
@@ -151,7 +257,8 @@ BOOL isSupportedBrowser(NSString *bundleId) {
   }
 
   AppWindow *window =
-      [[AppWindow alloc] initWithAccessibilityElement:focusedWindowElement];
+      [[AppWindow alloc] initWithAccessibilityElement:focusedWindowElement
+                                            parentApp:self];
   return window;
 }
 
@@ -184,6 +291,29 @@ BOOL isSupportedBrowser(NSString *bundleId) {
 
 - (AXUIElementRef)axUIElement {
   return _accessibilityElement.axUIElement;
+}
+
+- (BOOL)isSupportedBrowser {
+  return [self isSafari] || [self isChromiumBrowser] || [self isArc];
+}
+
+- (BOOL)isChromiumBrowser {
+  NSArray *chromiumBrowsers = @[
+    @"com.google.Chrome",
+    @"com.google.Chrome.beta",
+    @"com.google.Chrome.dev",
+    @"com.google.Chrome.canary",
+  ];
+
+  return [chromiumBrowsers containsObject:self.bundleId];
+}
+
+- (BOOL)isSafari {
+  return [self.bundleId isEqualToString:@"com.apple.Safari"];
+}
+
+- (BOOL)isArc {
+  return [self.bundleId isEqualToString:@"company.thebrowser.Browser"];
 }
 
 @end

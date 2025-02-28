@@ -11,17 +11,25 @@ WindowTitle *detect_focused_window(void);
 void free_window_title(WindowTitle *window_title);
 AXUIElementRef findUrlElement(AXUIElementRef element);
 void printAttributes(AXUIElementRef element, int depth, int maxDepth);
-BOOL isSupportedBrowser(NSString *bundleId);
+BOOL isDomain(NSString *str);
 
 @class AccessibilityElement;
+@class FocusedApp;
 
 @interface AppWindow : NSObject
-@property(nonatomic) AXUIElementRef axUIElement;
 @property(nonatomic, strong) AccessibilityElement *accessibilityElement;
-- (instancetype)initWithAXUIElement:(AXUIElementRef)element;
-- (instancetype)initWithAccessibilityElement:(AccessibilityElement *)element;
+@property(nonatomic, weak) FocusedApp *parentApp;
+- (instancetype)initWithAccessibilityElement:(AccessibilityElement *)element
+                                   parentApp:(FocusedApp *)parentApp;
 - (NSString *)title;
 - (NSString *)url;
+
+- (AccessibilityElement *)findUrlElement;
+- (AccessibilityElement *)findUrlElementInElement:
+    (AccessibilityElement *)element;
+- (AccessibilityElement *)findAddressBar;
+- (AccessibilityElement *)findAddressBarInElement:
+    (AccessibilityElement *)element;
 @end
 
 @interface FocusedApp : NSObject
@@ -35,4 +43,8 @@ BOOL isSupportedBrowser(NSString *bundleId);
 - (NSString *)bundleId;
 - (AppWindow *)focusedWindow;
 - (WindowTitle *)windowTitleStructWithWindow;
+- (BOOL)isSupportedBrowser;
+- (BOOL)isChromiumBrowser;
+- (BOOL)isSafari;
+- (BOOL)isArc;
 @end

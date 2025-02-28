@@ -12,9 +12,7 @@ static NSString *vibesUrl = nil;
 void simulateKeyPress(CGKeyCode keyCode, CGEventFlags flags);
 AXUIElementRef findURLFieldInElement(AXUIElementRef element,
                                      NSString *bundleId);
-BOOL isChromiumBrowser(NSString *bundleId);
-BOOL isSafari(NSString *bundleId);
-BOOL isArc(NSString *bundleId);
+
 void fallbackNavigation(NSString *url);
 
 // Simulate a key press
@@ -31,26 +29,6 @@ void simulateKeyPress(CGKeyCode keyCode, CGEventFlags flags) {
 
   CFRelease(keyDown);
   CFRelease(keyUp);
-}
-
-// Check if a browser is Chromium-based
-BOOL isChromiumBrowser(NSString *bundleId) {
-  NSArray *chromiumBrowsers = @[
-    @"com.google.Chrome",
-    @"com.google.Chrome.beta",
-    @"com.google.Chrome.dev",
-    @"com.google.Chrome.canary",
-  ];
-
-  return [chromiumBrowsers containsObject:bundleId];
-}
-
-BOOL isSafari(NSString *bundleId) {
-  return [bundleId isEqualToString:@"com.apple.Safari"];
-}
-
-BOOL isArc(NSString *bundleId) {
-  return [bundleId isEqualToString:@"company.thebrowser.Browser"];
 }
 
 // // Find URL field in a browser window using Accessibility API
@@ -293,19 +271,16 @@ BOOL redirect_to_vibes_page(void) {
       return NO;
     }
 
-    NSString *bundleId = [frontApp bundleId];
-    NSLog(@"Browser bundle ID: %@", bundleId);
-
-    if (!isSupportedBrowser(bundleId)) {
-      NSLog(@"Unsupported browser: %@", bundleId);
+    if (![frontApp isSupportedBrowser]) {
+      NSLog(@"Unsupported browser: %@", frontApp.bundleId);
       return NO;
     }
 
     // Important: Move the redirection to a background queue to avoid blocking
     dispatch_async(
         dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-          if (hasAutomationPermission(bundleId)) {
-            if (redirectUsingAppleScript(bundleId, vibesUrl)) {
+          if (hasAutomationPermission(frontApp.bundleId)) {
+            if (redirectUsingAppleScript(frontApp.bundleId, vibesUrl)) {
               NSLog(@"Successfully redirected using AppleScript");
               return;
             }
@@ -321,26 +296,12 @@ BOOL redirect_to_vibes_page(void) {
             return;
           }
 
-          // Get the AXUIElementRef from the AppWindow
-          AXUIElementRef windowElement = window.axUIElement;
-          if (!windowElement) {
-            NSLog(@"Could not get window element");
-            return;
-          }
-
-          // Create an AccessibilityElement from the window element
-          AccessibilityElement *windowAccessibilityElement =
-              [[AccessibilityElement alloc] initWithAXUIElement:windowElement];
-
-          // Use the AccessibilityElement class to find the URL field
-          AccessibilityElement *urlFieldElement =
-              [windowAccessibilityElement findAddressBarForBrowser:bundleId];
-          AXUIElementRef urlField = urlFieldElement.axUIElement;
+          AccessibilityElement *urlField = [window findAddressBar];
 
           if (urlField) {
             NSLog(@"Found URL field, setting focus");
-            AXUIElementSetAttributeValue(urlField, kAXFocusedAttribute,
-                                         kCFBooleanTrue);
+            AXUIElementSetAttributeValue(urlField.axUIElement,
+                                         kAXFocusedAttribute, kCFBooleanTrue);
             usleep(100000); // 100ms delay
 
             // Select all text (Cmd+A)
@@ -351,7 +312,8 @@ BOOL redirect_to_vibes_page(void) {
             // Set the URL
             NSLog(@"Setting URL to: %@", vibesUrl);
             AXError axError = AXUIElementSetAttributeValue(
-                urlField, kAXValueAttribute, (__bridge CFTypeRef)vibesUrl);
+                urlField.axUIElement, kAXValueAttribute,
+                (__bridge CFTypeRef)vibesUrl);
 
             if (axError == kAXErrorSuccess) {
               NSLog(@"Successfully set URL, pressing Enter");

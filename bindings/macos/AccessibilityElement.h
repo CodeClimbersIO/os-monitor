@@ -20,14 +20,4 @@
 // Get a specific attribute as an AccessibilityElement
 - (AccessibilityElement *)valueForAttribute:(CFStringRef)attribute;
 
-- (AccessibilityElement *)findUrlElement;
-- (AccessibilityElement *)findAddressBarForBrowser:(NSString *)bundleId;
-
 @end
-
-BOOL isChromiumBrowser(NSString *bundleId);
-BOOL isSafari(NSString *bundleId);
-BOOL isArc(NSString *bundleId);
-BOOL isDomain(NSString *str);
-
-void printAttributes(AXUIElementRef element, int indent, int maxDepth);
