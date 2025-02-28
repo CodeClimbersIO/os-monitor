@@ -138,12 +138,14 @@ BOOL isDomain(NSString *str) {
     }
     // Safari-specific approach
   } else if ([_parentApp isSafari]) {
-    NSString *value = [element value];
+    id value = [element value];
 
-    // Check if the value looks like a URL
-    if (value &&
-        ([value hasPrefix:@"http://"] || [value hasPrefix:@"https://"] ||
-         [value hasPrefix:@"www."] || [value containsString:@"."])) {
+    // Check if the value is a string and looks like a URL
+    if ([value isKindOfClass:[NSString class]] &&
+        ([(NSString *)value hasPrefix:@"http://"] ||
+         [(NSString *)value hasPrefix:@"https://"] ||
+         [(NSString *)value hasPrefix:@"www."] ||
+         [(NSString *)value containsString:@"."])) {
       return element;
     }
   } else if ([_parentApp isArc]) {

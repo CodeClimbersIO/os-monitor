@@ -81,25 +81,26 @@ fn detect_focused_window() {
 }
 
 /// Checks if the current URL is blocked and redirects if necessary
-fn check_and_block_url() {
+/// Returns true if URL was blocked and redirection was successful, false otherwise
+fn check_and_block_url() -> bool {
     // Add a timeout to prevent hanging
     let now = std::time::Instant::now();
 
     unsafe {
         let window_title = bindings::detect_focused_window();
         if window_title.is_null() {
-            return;
+            return false;
         }
 
         // Check if the URL is blocked
         if let Some(url) = (*window_title).get_url() {
             // Add debug logging
-            log::info!("Checking URL: {}", url);
+            log::warn!("Checking URL: {}", url);
 
             // Check for timeout
             if now.elapsed() > std::time::Duration::from_secs(5) {
                 log::error!("URL checking timed out - aborting");
-                return;
+                return false;
             }
 
             let c_url = CString::new(url.clone()).unwrap();
@@ -107,9 +108,12 @@ fn check_and_block_url() {
                 log::info!("URL is blocked, redirecting to vibes page: {}", url);
                 let redirect_result = bindings::redirect_to_vibes_page();
                 log::info!("Redirect result: {}", redirect_result);
+                return redirect_result;
             }
         }
     }
+
+    false
 }
 
 extern "C" fn mouse_event_callback(_: f64, _: f64, _: i32, _: i32) {
@@ -126,12 +130,26 @@ extern "C" fn keyboard_event_callback(keycode: i32) {
     if keycode == 36 {
         std::thread::spawn(|| {
             std::thread::sleep(std::time::Duration::from_millis(50));
-            check_and_block_url();
 
-            std::thread::spawn(|| {
-                std::thread::sleep(std::time::Duration::from_millis(1000));
-                check_and_block_url();
-            });
+            let mut retry_count = 0;
+            let max_retries = 5;
+
+            while retry_count < max_retries {
+                log::warn!("URL blocking attempt {}", retry_count);
+                if check_and_block_url() {
+                    break;
+                }
+
+                // Exponential backoff: 500ms, 1000ms, 2000ms, etc.
+                let backoff_ms = 500 * (2_u64.pow(retry_count));
+                log::info!("URL blocking attempt failed, retrying in {}ms", backoff_ms);
+                std::thread::sleep(std::time::Duration::from_millis(backoff_ms));
+                retry_count += 1;
+            }
+
+            if retry_count == max_retries {
+                log::warn!("Failed to block URL after {} attempts", max_retries);
+            }
         });
     }
 }
