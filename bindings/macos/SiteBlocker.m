@@ -10,7 +10,10 @@ static NSString *vibesUrl = nil;
 
 // Function declarations (prototypes)
 void simulateKeyPress(CGKeyCode keyCode, CGEventFlags flags);
-AXUIElementRef findURLFieldInElement(AXUIElementRef element);
+AXUIElementRef findURLFieldInElement(AXUIElementRef element, NSString *bundleId);
+BOOL isChromiumBrowser(NSString *bundleId);
+BOOL isSafari(NSString *bundleId);
+BOOL isArc(NSString *bundleId);
 
 // Simulate a key press
 void simulateKeyPress(CGKeyCode keyCode, CGEventFlags flags) {
@@ -28,17 +31,40 @@ void simulateKeyPress(CGKeyCode keyCode, CGEventFlags flags) {
     CFRelease(keyUp);
 }
 
-// Find URL field in a browser window using Accessibility API
-AXUIElementRef findURLFieldInElement(AXUIElementRef element) {
-    if (!element) return NULL;
+// Check if a browser is Chromium-based
+BOOL isChromiumBrowser(NSString *bundleId) {
+    NSArray *chromiumBrowsers = @[
+        @"com.google.Chrome", 
+        @"com.google.Chrome.beta",
+        @"com.google.Chrome.dev",
+        @"com.google.Chrome.canary",
+    ];
     
+    return [chromiumBrowsers containsObject:bundleId];
+}
+
+BOOL isSafari(NSString *bundleId) {
+    return [bundleId isEqualToString:@"com.apple.Safari"];
+}
+
+BOOL isArc(NSString *bundleId) {
+    return [bundleId isEqualToString:@"company.thebrowser.Browser"];
+}
+
+// Find URL field in a browser window using Accessibility API
+AXUIElementRef findURLFieldInElement(AXUIElementRef element, NSString *bundleId) {
+    if (!element) return NULL;
     // Get the role
     CFStringRef roleRef;
     AXUIElementCopyAttributeValue(element, kAXRoleAttribute, (CFTypeRef *)&roleRef);
     NSString *role = (__bridge_transfer NSString *)roleRef;
     
     // Check if this is a text field (potential URL field)
-    if ([role isEqualToString:NSAccessibilityTextFieldRole]) {
+    // NSLog(@"isTextField: %@ %@", role, [role isEqualToString:NSAccessibilityTextFieldRole]);
+    printAttributes(element, 0, 3);
+    // Use description approach for Chromium-based browsers
+    if (isChromiumBrowser(bundleId)) {
+      if ([role isEqualToString:NSAccessibilityTextFieldRole]) {
         // Get the description or identifier
         CFStringRef descriptionRef;
         if (AXUIElementCopyAttributeValue(element, kAXDescriptionAttribute, (CFTypeRef *)&descriptionRef) == kAXErrorSuccess) {
@@ -53,7 +79,39 @@ AXUIElementRef findURLFieldInElement(AXUIElementRef element) {
                 }
             }
         }
+      }
+    } else if (isSafari(bundleId)) {
+        // Safari-specific approach
+        // Safari's URL field is typically a text field with specific characteristics
+        // Could check for the element's position or other attributes
+        
+        // For now using a simplified approach:
+        CFStringRef valueRef;
+        if (AXUIElementCopyAttributeValue(element, kAXValueAttribute, (CFTypeRef *)&valueRef) == kAXErrorSuccess) {
+            NSString *value = (__bridge_transfer NSString *)valueRef;
+            // Check if the value looks like a URL
+            if ([value hasPrefix:@"http://"] || [value hasPrefix:@"https://"] || 
+                [value hasPrefix:@"www."] || [value containsString:@"."]) {
+                CFRetain(element);
+                return element;
+            }
+        }
+    } else if (isArc(bundleId)) {
+        NSLog(@"Arc browser detected");
+        
+        // Check for the identifier attribute
+        CFStringRef identifierRef;
+        if (AXUIElementCopyAttributeValue(element, kAXIdentifierAttribute, (CFTypeRef *)&identifierRef) == kAXErrorSuccess) {
+            NSString *identifier = (__bridge_transfer NSString *)identifierRef;
+            
+            // Check if this is the URL field based on the identifier
+            if ([identifier isEqualToString:@"commandBarPlaceholderTextField"]) {
+                CFRetain(element); // Retain it since we'll pass it to the caller
+                return element;
+            }
+        }
     }
+    // Add other browser-specific detection logic here as needed
     
     // Recursively search children
     CFArrayRef childrenRef;
@@ -62,13 +120,12 @@ AXUIElementRef findURLFieldInElement(AXUIElementRef element) {
     if (childrenError == kAXErrorSuccess) {
         NSArray *children = (__bridge_transfer NSArray *)childrenRef;
         for (id child in children) {
-            AXUIElementRef urlField = findURLFieldInElement((__bridge AXUIElementRef)child);
+            AXUIElementRef urlField = findURLFieldInElement((__bridge AXUIElementRef)child, bundleId);
             if (urlField) {
                 return urlField;
             }
         }
     }
-    
     return NULL;
 }
 
@@ -183,64 +240,50 @@ BOOL redirect_to_vibes_page(void) {
             return NO;
         }
         
+
         // Dispatch the rest of the work to avoid blocking
         dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-            // Find the URL field
-            AXUIElementRef urlField = findURLFieldInElement(window);
+            // Find the URL field - pass the bundle ID to the function
+            AXUIElementRef urlField = findURLFieldInElement(window, bundleId);
+            printAttributes(urlField, 0, 1);
+            NSLog(@"urlField: %@", urlField);
             __block AXError blockAxError;
+
+            if (!urlField) {
+                NSLog(@"Could not find URL field");
+                CFRelease(window);
+                CFRelease(appElement);
+                return;
+            }
             
-            if (urlField) {
-                NSLog(@"Found URL field, setting focus");
-                // Focus the URL field
-                AXUIElementSetAttributeValue(urlField, kAXFocusedAttribute, kCFBooleanTrue);
+            NSLog(@"Found URL field, setting focus");
+            // Focus the URL field
+            AXUIElementSetAttributeValue(urlField, kAXFocusedAttribute, kCFBooleanTrue);
+            usleep(100000); // 100ms delay
+            
+            // Select all text (Cmd+A)
+            simulateKeyPress(0, kCGEventFlagMaskCommand); // 'A' key with Command
+            usleep(50000); // 50ms delay
+            
+            // Set the URL
+            NSLog(@"Setting URL to: %@", vibesUrl);
+            blockAxError = AXUIElementSetAttributeValue(urlField, kAXValueAttribute, (__bridge CFTypeRef)vibesUrl);
+            
+            if (blockAxError == kAXErrorSuccess) {
+                NSLog(@"Successfully set URL, pressing Enter");
                 usleep(100000); // 100ms delay
-                
-                // Select all text (Cmd+A)
-                simulateKeyPress(0, kCGEventFlagMaskCommand); // 'A' key with Command
-                usleep(50000); // 50ms delay
-                
-                // Set the URL
-                NSLog(@"Setting URL to: %@", vibesUrl);
-                blockAxError = AXUIElementSetAttributeValue(urlField, kAXValueAttribute, (__bridge CFTypeRef)vibesUrl);
-                
-                if (blockAxError == kAXErrorSuccess) {
-                    NSLog(@"Successfully set URL, pressing Enter");
-                    usleep(100000); // 100ms delay
-                    // Press Enter to navigate
-                    simulateKeyPress(36, 0); // Return key
-                } else {
-                    NSLog(@"Failed to set URL (AX error: %d)", blockAxError);
-                    
-                    // Fallback: try key sequence instead
-                    // Press Cmd+L to focus address bar
-                    simulateKeyPress(37, kCGEventFlagMaskCommand); // Cmd+L
-                    usleep(100000); // 100ms delay
-                    
-                    // Type the URL (not implemented here, would need character-by-character simulation)
-                    // For simplicity, we'll just use the clipboard
-                    NSPasteboard *pasteboard = [NSPasteboard generalPasteboard];
-                    [pasteboard clearContents];
-                    [pasteboard writeObjects:@[vibesUrl]];
-                    usleep(50000); // 50ms delay
-                    
-                    // Press Cmd+V to paste
-                    simulateKeyPress(9, kCGEventFlagMaskCommand); // Cmd+V
-                    usleep(100000); // 100ms delay
-                    
-                    // Press Enter
-                    simulateKeyPress(36, 0); // Return key
-                }
-                
-                CFRelease(urlField);
+                // Press Enter to navigate
+                simulateKeyPress(36, 0); // Return key
             } else {
-                NSLog(@"Could not find URL field, trying fallback approach");
+                NSLog(@"Failed to set URL (AX error: %d)", blockAxError);
                 
-                // Fallback: try key sequence
+                // Fallback: try key sequence instead
                 // Press Cmd+L to focus address bar
                 simulateKeyPress(37, kCGEventFlagMaskCommand); // Cmd+L
                 usleep(100000); // 100ms delay
                 
-                // Use clipboard to set URL
+                // Type the URL (not implemented here, would need character-by-character simulation)
+                // For simplicity, we'll just use the clipboard
                 NSPasteboard *pasteboard = [NSPasteboard generalPasteboard];
                 [pasteboard clearContents];
                 [pasteboard writeObjects:@[vibesUrl]];
@@ -253,6 +296,8 @@ BOOL redirect_to_vibes_page(void) {
                 // Press Enter
                 simulateKeyPress(36, 0); // Return key
             }
+            
+            CFRelease(urlField);
             
             CFRelease(window);
             CFRelease(appElement);

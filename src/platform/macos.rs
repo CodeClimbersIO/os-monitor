@@ -51,14 +51,6 @@ fn detect_focused_window() {
         log::info!("  detect_focused_window bundle_id: {:?}", bundle_id);
         log::info!("  detect_focused_window url: {:?}", url);
 
-        // Check if URL is blocked and redirect if needed
-        if let Some(url_str) = url.as_deref() {
-            if platform_is_url_blocked(url_str) {
-                log::info!("URL is blocked, redirecting to vibes page");
-                bindings::redirect_to_vibes_page();
-            }
-        }
-
         {
             log::info!("  detect_focused_window lock");
             let mut window_title_guard = FOCUSED_WINDOW.lock().unwrap();
@@ -88,15 +80,40 @@ fn detect_focused_window() {
     }
 }
 
+/// Checks if the current URL is blocked and redirects if necessary
+fn check_and_block_url() {
+    unsafe {
+        let window_title = bindings::detect_focused_window();
+        if window_title.is_null() {
+            return;
+        }
+
+        // Check if the URL is blocked
+        if let Some(url) = (*window_title).get_url() {
+            let c_url = CString::new(url.clone()).unwrap();
+            if bindings::is_url_blocked(c_url.as_ptr()) {
+                log::info!("URL is blocked, redirecting to vibes page: {}", url);
+                bindings::redirect_to_vibes_page();
+            }
+        }
+    }
+}
+
 extern "C" fn mouse_event_callback(_: f64, _: f64, _: i32, _: i32) {
     // Store event in vector
     let mut has_activity = HAS_MOUSE_ACTIVITY.lock().unwrap();
     *has_activity = true;
 }
 
-extern "C" fn keyboard_event_callback(_: i32) {
+extern "C" fn keyboard_event_callback(keycode: i32) {
     let mut has_activity = HAS_KEYBOARD_ACTIVITY.lock().unwrap();
     *has_activity = true;
+
+    // Check if Enter key was pressed (keycode 36)
+    if keycode == 36 {
+        // Immediate check
+        check_and_block_url();
+    }
 }
 
 fn send_buffered_events() {
@@ -193,12 +210,5 @@ pub(crate) fn platform_start_site_blocking(urls: &[String], redirect_url: &str) 
 pub(crate) fn platform_stop_site_blocking() {
     unsafe {
         bindings::stop_site_blocking();
-    }
-}
-
-pub(crate) fn platform_is_url_blocked(url: &str) -> bool {
-    unsafe {
-        let c_url = CString::new(url).unwrap();
-        bindings::is_url_blocked(c_url.as_ptr())
     }
 }

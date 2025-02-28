@@ -39,7 +39,3 @@ pub fn start_site_blocking(urls: &[String], redirect_url: &str) -> bool {
 pub fn stop_site_blocking() {
     platform_stop_site_blocking()
 }
-
-pub fn is_url_blocked(url: &str) -> bool {
-    platform_is_url_blocked(url)
-}

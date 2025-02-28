@@ -2,9 +2,9 @@
 #import "AccessibilityUtils.h"
 #import <ApplicationServices/ApplicationServices.h>
 
-void printAttributes(AXUIElementRef element, int depth) {
+void printAttributes(AXUIElementRef element, int depth, int maxDepth) {
     if (!element) return;
-    
+    if (depth > maxDepth) return;
     CFArrayRef attributeNames;
     AXUIElementCopyAttributeNames(element, &attributeNames);
     NSArray *attributes = (__bridge_transfer NSArray *)attributeNames;
@@ -50,7 +50,7 @@ void printAttributes(AXUIElementRef element, int depth) {
             if ([attribute isEqualToString:NSAccessibilityChildrenAttribute]) {
                 NSArray *children = (NSArray *)value;
                 for (id child in children) {
-                    printAttributes((__bridge AXUIElementRef)child, depth + 1);
+                    printAttributes((__bridge AXUIElementRef)child, depth + 1, maxDepth);
                 }
             }
         } else {

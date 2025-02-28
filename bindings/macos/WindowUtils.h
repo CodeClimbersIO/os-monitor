@@ -24,4 +24,4 @@ NSRunningApplication* get_frontmost_app(void);
 AXUIElementRef findUrlElement(AXUIElementRef element);
 
 // Debug utility to print accessibility attributes
-void printAttributes(AXUIElementRef element, int depth); 
+void printAttributes(AXUIElementRef element, int depth, int maxDepth); 

@@ -17,20 +17,13 @@
 
 static MonitorHolder *monitorHolder = nil;
 
-// All window detection functions have been moved to WindowUtils.m:
-// - printAttributes()
-// - isDomain()
-// - findUrlElement()
-// - isSupportedBrowser()
-// - get_frontmost_app()
-// - detect_focused_window()
-
 CGEventRef eventCallback(CGEventTapProxy proxy, CGEventType type, CGEventRef event, void *refcon) {
     CGPoint location = CGEventGetLocation(event);
     switch (type) {
         case kCGEventKeyDown:
             if (monitorHolder.keyboardCallback) {
-                CGKeyCode keyCode = (CGKeyCode)CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode);
+                int64_t keyCode = CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode);
+                
                 monitorHolder.keyboardCallback((int32_t)keyCode);
             }
             break;
