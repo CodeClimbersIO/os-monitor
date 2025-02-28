@@ -1,3 +1,4 @@
+#import "AccessibilityElement.h"
 #import <Cocoa/Cocoa.h>
 
 BOOL start_site_blocking(const char **blocked_urls, int url_count,
