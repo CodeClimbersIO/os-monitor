@@ -5,11 +5,16 @@
 #import <Cocoa/Cocoa.h>
 #import <objc/runtime.h>
 
+// Add this typedef before using it
+typedef void (*WebsiteVisitCallback)(const char *url);
+
 @interface MonitorHolder : NSObject
 @property(nonatomic, strong) NSArray<id> *monitors;
 @property(nonatomic, assign) MouseEventCallback mouseCallback;
 @property(nonatomic, assign) KeyboardEventCallback keyboardCallback;
 @property(nonatomic, assign) WindowEventCallback windowCallback;
+@property(nonatomic, assign) WebsiteVisitCallback websiteCallback;
+@property(nonatomic, strong) id axObserver;
 @end
 
 @implementation MonitorHolder

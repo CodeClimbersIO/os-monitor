@@ -70,8 +70,6 @@ void stop_site_blocking(void) {
 }
 
 BOOL is_url_blocked(const char *url) {
-  NSLog(@"is_url_blocked");
-  NSLog(@"url: %s", url);
   if (!url || !siteBlockingEnabled || blockedUrls.count == 0) {
     return NO;
   }
@@ -81,8 +79,6 @@ BOOL is_url_blocked(const char *url) {
 
     // Check if the current URL contains any of the blocked URLs
     for (NSString *blockedUrl in blockedUrls) {
-      NSLog(@"blockedUrl: %@", blockedUrl);
-      NSLog(@"currentUrl: %@", currentUrl);
       if ([currentUrl rangeOfString:blockedUrl options:NSCaseInsensitiveSearch]
               .location != NSNotFound) {
         NSLog(@"URL %@ is blocked (matched %@)", currentUrl, blockedUrl);
@@ -175,40 +171,6 @@ BOOL redirect_to_vibes_page(void) {
       return YES; // Return immediately if AppleScript was successful
     }
 
-    NSLog(@"AppleScript redirection failed, falling back to "
-          @"accessibility API");
-    AppWindow *window = [frontApp focusedWindow];
-    if (!window) {
-      NSLog(@"Failed to get browser window");
-      return NO;
-    }
-
-    AccessibilityElement *urlField = [window findAddressBar];
-
-    if (urlField) {
-      NSLog(@"Found URL field, setting focus");
-      AXUIElementSetAttributeValue(urlField.axUIElement, kAXFocusedAttribute,
-                                   kCFBooleanTrue);
-      usleep(100000); // 100ms delay
-
-      // Select all text (Cmd+A)
-      simulateKeyPress(0,
-                       kCGEventFlagMaskCommand); // 'A' key with Command
-      usleep(50000);                             // 50ms delay
-
-      // Set the URL
-      NSLog(@"Setting URL to: %@", vibesUrl);
-      AXError axError =
-          AXUIElementSetAttributeValue(urlField.axUIElement, kAXValueAttribute,
-                                       (__bridge CFTypeRef)vibesUrl);
-
-      if (axError == kAXErrorSuccess) {
-        NSLog(@"Successfully set URL, pressing Enter");
-        usleep(100000); // 100ms delay
-        // Press Enter to navigate
-        simulateKeyPress(36, 0); // Return key
-      }
-    }
     NSLog(@"Successfully redirected to vibes page");
     return YES; // Return success for the main function since we've started the
                 // async process

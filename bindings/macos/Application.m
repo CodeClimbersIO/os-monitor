@@ -112,9 +112,6 @@ BOOL isDomain(NSString *str) {
   // Get the role
   NSString *role = [element role];
 
-  // Print attributes for debugging
-  [element printAttributes];
-
   // Use description approach for Chromium-based browsers
   if ([_parentApp isChromiumBrowser]) {
     if ([role isEqualToString:NSAccessibilityTextFieldRole]) {
