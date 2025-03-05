@@ -172,4 +172,24 @@
   return nil;
 }
 
+- (BOOL)addObserver:(AXObserverRef)observer
+       notification:(CFStringRef)notification
+           callback:(AXObserverCallback)callback
+           userData:(void *)userData {
+  if (!_axUIElement || !observer) {
+    return NO;
+  }
+
+  AXError error =
+      AXObserverAddNotification(observer, _axUIElement, notification, userData);
+  return (error == kAXErrorSuccess);
+}
+
+- (void)removeObserver:(AXObserverRef)observer
+          notification:(CFStringRef)notification {
+  if (_axUIElement && observer) {
+    AXObserverRemoveNotification(observer, _axUIElement, notification);
+  }
+}
+
 @end

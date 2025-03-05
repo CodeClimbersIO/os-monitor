@@ -331,3 +331,21 @@ WindowTitle *detect_focused_window(void) {
 NSRunningApplication *get_frontmost_app(void) {
   return [FocusedApp getFrontmostApp];
 }
+
+void free_window_title(WindowTitle *window_title) {
+  if (window_title) {
+    if (window_title->app_name) {
+      free((void *)window_title->app_name);
+    }
+    if (window_title->window_title) {
+      free((void *)window_title->window_title);
+    }
+    if (window_title->bundle_id) {
+      free((void *)window_title->bundle_id);
+    }
+    if (window_title->url) {
+      free((void *)window_title->url);
+    }
+    free(window_title);
+  }
+}

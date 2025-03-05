@@ -10,6 +10,7 @@ pub use event::{
 };
 pub use platform::{
     detect_changes, get_application_icon_data, has_accessibility_permissions,
-    request_accessibility_permissions, request_automation_permission, start_monitoring,
-    start_site_blocking, stop_site_blocking,
+    is_window_observer_monitoring, request_accessibility_permissions,
+    request_automation_permission, start_monitoring, start_site_blocking,
+    start_window_observer_monitoring, stop_site_blocking, stop_window_observer_monitoring,
 };

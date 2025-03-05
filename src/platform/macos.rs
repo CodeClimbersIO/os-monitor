@@ -42,7 +42,7 @@ const BROWSER_BUNDLE_IDS: &[&str] = &[
 
 fn detect_focused_window() {
     unsafe {
-        log::info!("detect_focused_window start");
+        log::trace!("detect_focused_window start");
         let window_title: *const bindings::RawWindowTitle = bindings::detect_focused_window();
         if window_title.is_null() {
             log::warn!("  detect_focused_window null");
@@ -59,26 +59,26 @@ fn detect_focused_window() {
 
         let bundle_id = (*window_title).get_bundle_id();
         let url = (*window_title).get_url();
-        log::info!(
+        log::trace!(
             "  detect_focused_window window_title: {:?} {:?}",
             app_name,
             title
         );
-        log::info!("  detect_focused_window bundle_id: {:?}", bundle_id);
-        log::info!("  detect_focused_window url: {:?}", url);
+        log::trace!("  detect_focused_window bundle_id: {:?}", bundle_id);
+        log::trace!("  detect_focused_window url: {:?}", url);
 
         {
-            log::info!("  detect_focused_window lock");
+            log::trace!("  detect_focused_window lock");
             let mut window_title_guard = FOCUSED_WINDOW.lock().unwrap();
-            log::info!("  detect_focused_window lock end");
+            log::trace!("  detect_focused_window lock end");
             let monitor_guard = MONITOR.lock().unwrap();
-            log::info!("  detect_focused_window callback_guard");
+            log::trace!("  detect_focused_window callback_guard");
             if app_name.to_string() != window_title_guard.app_name
                 || title.to_string() != window_title_guard.title
             {
-                log::info!("    detect_focused_window callback");
+                log::trace!("    detect_focused_window callback");
                 if let Some(monitor) = monitor_guard.as_ref() {
-                    log::info!("      detect_focused_window callback Some");
+                    log::trace!("      detect_focused_window callback Some");
                     monitor.on_window_event(WindowEvent {
                         window_title: title.to_string(),
                         app_name: app_name.to_string(),
@@ -86,12 +86,12 @@ fn detect_focused_window() {
                         bundle_id: bundle_id,
                         platform: Platform::Mac,
                     });
-                    log::info!("      detect_focused_window callback Some end");
+                    log::trace!("      detect_focused_window callback Some end");
                 }
             }
             window_title_guard.title = title.to_string();
             window_title_guard.app_name = app_name.to_string();
-            log::info!("  detect_focused_window lock end");
+            log::trace!("  detect_focused_window lock end");
         }
     }
 }
@@ -101,7 +101,6 @@ fn detect_focused_window() {
 fn check_and_block_url() -> bool {
     // Add a timeout to prevent hanging
     let now = std::time::Instant::now();
-
     unsafe {
         let window_title = bindings::detect_focused_window();
         if window_title.is_null() {
@@ -135,9 +134,9 @@ fn check_and_block_url() -> bool {
 
             let c_url = CString::new(url.clone()).unwrap();
             if bindings::is_url_blocked(c_url.as_ptr()) {
-                log::info!("URL is blocked, redirecting to vibes page: {}", url);
+                log::trace!("URL is blocked, redirecting to vibes page: {}", url);
                 let redirect_result = bindings::redirect_to_vibes_page();
-                log::info!("Redirect result: {}", redirect_result);
+                log::trace!("Redirect result: {}", redirect_result);
                 return redirect_result;
             }
         }
@@ -166,7 +165,7 @@ extern "C" fn keyboard_event_callback(keycode: i32) {
             if let Some(stop_flag) = thread_guard.as_ref() {
                 // Signal the existing thread to stop
                 stop_flag.store(true, Ordering::SeqCst);
-                log::info!("Signaled existing URL blocking thread to stop");
+                log::trace!("Signaled existing URL blocking thread to stop");
             }
 
             // Create a new stop flag for the new thread
@@ -196,7 +195,7 @@ fn attempt_url_blocking(stop_flag: Arc<AtomicBool>) {
     while retry_count < max_retries {
         // Check if we've been signaled to stop
         if stop_flag.load(Ordering::SeqCst) {
-            log::info!("URL blocking thread received stop signal, terminating");
+            log::trace!("URL blocking thread received stop signal, terminating");
 
             // Clear the in-progress flag only if we're the thread being stopped
             // and not a new thread that's just starting
@@ -218,7 +217,7 @@ fn attempt_url_blocking(stop_flag: Arc<AtomicBool>) {
 
         // Exponential backoff: 500ms, 1000ms, 2000ms, etc.
         let backoff_ms = 500 * (2_u64.pow(retry_count));
-        log::info!("URL blocking attempt failed, retrying in {}ms", backoff_ms);
+        log::trace!("URL blocking attempt failed, retrying in {}ms", backoff_ms);
 
         // Sleep in small chunks so we can check for stop signals
         let start_time = std::time::Instant::now();
@@ -229,7 +228,7 @@ fn attempt_url_blocking(stop_flag: Arc<AtomicBool>) {
 
             // Check if we've been signaled to stop
             if stop_flag.load(Ordering::SeqCst) {
-                log::info!("URL blocking thread received stop signal during backoff, terminating");
+                log::trace!("URL blocking thread received stop signal during backoff, terminating");
 
                 // Clear the in-progress flag only if we're the thread being stopped
                 let thread_guard = CURRENT_BLOCKING_THREAD.lock().unwrap();
@@ -280,20 +279,20 @@ fn send_buffered_events() {
 }
 
 pub(crate) fn platform_detect_changes() -> Result<(), MonitorError> {
-    log::info!("platform_detect_changes start");
+    log::trace!("platform_detect_changes start");
     detect_focused_window();
-    log::info!("detected focused window");
+    log::trace!("detected focused window");
 
     let mut last_send = LAST_SEND.lock().unwrap();
-    log::info!("last_send: {:?}", last_send.elapsed());
+    log::trace!("last_send: {:?}", last_send.elapsed());
 
     if last_send.elapsed() >= Duration::from_secs(30) {
-        log::info!("sending buffered events");
+        log::trace!("sending buffered events");
         send_buffered_events();
-        log::info!("sent buffered events");
+        log::trace!("sent buffered events");
         *last_send = Instant::now();
     }
-    log::info!("platform_detect_changes end");
+    log::trace!("platform_detect_changes end");
     Ok(())
 }
 
@@ -320,20 +319,25 @@ pub(crate) fn platform_get_application_icon_data(bundle_id: &str) -> Option<Stri
 }
 
 pub(crate) fn platform_start_monitoring(monitor: Arc<Monitor>) {
-    log::info!("platform_start_monitoring start");
+    log::trace!("platform_start_monitoring start");
     {
         let mut monitor_guard = MONITOR.lock().unwrap();
         *monitor_guard = Some(monitor);
     }
-    log::info!("platform_start_monitoring end");
+    log::trace!("platform_start_monitoring end");
+
+    // Start observer-based window monitoring
+    platform_start_window_observer_monitoring();
+
+    // Also keep the existing monitoring for mouse/keyboard events
     unsafe {
         bindings::start_monitoring(mouse_event_callback, keyboard_event_callback);
     }
-    log::info!("bindings::start_monitoring end");
+    log::trace!("bindings::start_monitoring end");
 }
 
 pub(crate) fn platform_start_site_blocking(urls: &[String], redirect_url: &str) -> bool {
-    log::info!("platform_start_site_blocking start");
+    log::trace!("platform_start_site_blocking start");
     let c_urls: Vec<CString> = urls
         .iter()
         .map(|url| CString::new(url.as_str()).unwrap())
@@ -343,7 +347,7 @@ pub(crate) fn platform_start_site_blocking(urls: &[String], redirect_url: &str) 
 
     let c_redirect_url = CString::new(redirect_url).unwrap();
 
-    log::info!("platform_start_site_blocking start");
+    log::trace!("platform_start_site_blocking start");
     unsafe {
         bindings::start_site_blocking(
             c_urls_ptrs.as_ptr(),
@@ -366,4 +370,69 @@ pub(crate) fn platform_request_automation_permission(bundle_id: &str) -> bool {
             Err(_) => false,
         }
     }
+}
+
+extern "C" fn window_observer_callback(
+    app_name: *const c_char,
+    window_title: *const c_char,
+    bundle_id: *const c_char,
+    url: *const c_char,
+) {
+    log::warn!("window_observer_callback start");
+
+    let app_name = unsafe {
+        if app_name.is_null() {
+            String::new()
+        } else {
+            CStr::from_ptr(app_name).to_string_lossy().to_string()
+        }
+    };
+
+    let title = unsafe {
+        if window_title.is_null() {
+            String::new()
+        } else {
+            CStr::from_ptr(window_title).to_string_lossy().to_string()
+        }
+    };
+
+    let bundle_id = unsafe {
+        if bundle_id.is_null() {
+            None
+        } else {
+            Some(CStr::from_ptr(bundle_id).to_string_lossy().to_string())
+        }
+    };
+    let url = unsafe {
+        if url.is_null() {
+            None
+        } else {
+            Some(CStr::from_ptr(url).to_string_lossy().to_string())
+        }
+    };
+
+    let monitor_guard = MONITOR.lock().unwrap();
+    if let Some(monitor) = monitor_guard.as_ref() {
+        monitor.on_window_event(WindowEvent {
+            window_title: title,
+            app_name,
+            url,
+            bundle_id,
+            platform: Platform::Mac,
+        });
+    }
+}
+
+pub(crate) fn platform_start_window_observer_monitoring() -> bool {
+    log::trace!("Starting window observer monitoring");
+    unsafe { bindings::start_window_observer_monitoring(window_observer_callback) }
+}
+
+pub(crate) fn platform_stop_window_observer_monitoring() {
+    log::trace!("Stopping window observer monitoring");
+    unsafe { bindings::stop_window_observer_monitoring() }
+}
+
+pub(crate) fn platform_is_window_observer_monitoring() -> bool {
+    unsafe { bindings::is_window_observer_monitoring() }
 }

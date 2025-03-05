@@ -1,6 +1,7 @@
 // Monitor.m
 
 #import "Monitor.h"
+#import "WindowObserver.h"
 #import <ApplicationServices/ApplicationServices.h>
 #import <Cocoa/Cocoa.h>
 #import <objc/runtime.h>
@@ -162,4 +163,17 @@ void free_icon_data(const char *data) {
   if (data) {
     free((void *)data);
   }
+}
+
+BOOL start_window_observer_monitoring(WindowChangeCallback callback) {
+  [[WindowObserver sharedObserver] startObservingWithCallback:callback];
+  return [[WindowObserver sharedObserver] isObserving];
+}
+
+void stop_window_observer_monitoring(void) {
+  [[WindowObserver sharedObserver] stopObserving];
+}
+
+BOOL is_window_observer_monitoring(void) {
+  return [[WindowObserver sharedObserver] isObserving];
 }

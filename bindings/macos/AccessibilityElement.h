@@ -3,7 +3,7 @@
 
 @interface AccessibilityElement : NSObject
 
-@property(readonly) AXUIElementRef axUIElement;
+@property(nonatomic, readonly) AXUIElementRef axUIElement;
 
 - (instancetype)initWithAXUIElement:(AXUIElementRef)element;
 - (void)printAttributesWithDepth:(int)depth maxDepth:(int)maxDepth;
@@ -19,5 +19,13 @@
 
 // Get a specific attribute as an AccessibilityElement
 - (AccessibilityElement *)valueForAttribute:(CFStringRef)attribute;
+
+// New observer methods
+- (BOOL)addObserver:(AXObserverRef)observer
+       notification:(CFStringRef)notification
+           callback:(AXObserverCallback)callback
+           userData:(void *)userData;
+- (void)removeObserver:(AXObserverRef)observer
+          notification:(CFStringRef)notification;
 
 @end
