@@ -2,8 +2,7 @@ use std::sync::Arc;
 
 use os_monitor::{
     detect_changes, get_application_icon_data, has_accessibility_permissions,
-    request_accessibility_permissions, start_monitoring, start_site_blocking,
-    start_window_observer_monitoring, Monitor, WindowEvent,
+    request_accessibility_permissions, start_monitoring, start_site_blocking, Monitor, WindowEvent,
 };
 
 fn on_keyboard_events(has_activity: bool) {
@@ -49,17 +48,16 @@ fn main() {
         start_site_blocking(&blocked_urls, "https://ebb.cool/vibes");
         start_monitoring(Arc::new(monitor));
     });
-    // let monitor_clone = monitor.clone();/
     std::thread::spawn(move || {
-        start_window_observer_monitoring();
         // initialize_monitor(monitor_clone).expect("Failed to initialize monitor");
-        // loop {
-        //     log::trace!("detect_changes start");
-        //     // detect_changes().expect("Failed to detect changes");
-        //     log::trace!("detect_changes end");
-        //     std::thread::sleep(std::time::Duration::from_secs(1));
-        // }
+        loop {
+            log::trace!("detect_changes start");
+            detect_changes().expect("Failed to detect changes");
+            log::trace!("detect_changes end");
+            std::thread::sleep(std::time::Duration::from_secs(1));
+        }
     });
+
     loop {
         std::thread::sleep(std::time::Duration::from_secs(1));
     }

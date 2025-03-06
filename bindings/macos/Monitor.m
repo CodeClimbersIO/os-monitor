@@ -1,7 +1,6 @@
 // Monitor.m
 
 #import "Monitor.h"
-#import "WindowObserver.h"
 #import <ApplicationServices/ApplicationServices.h>
 #import <Cocoa/Cocoa.h>
 #import <objc/runtime.h>
@@ -22,6 +21,21 @@ typedef void (*WebsiteVisitCallback)(const char *url);
 @end
 
 static MonitorHolder *monitorHolder = nil;
+
+void start_run_loop() {
+  @autoreleasepool {
+    NSLog(@"Processing events");
+    NSLog(@"Thread: %@", [NSThread currentThread]);
+
+    NSRunLoop *currentRunLoop = [NSRunLoop currentRunLoop];
+
+    NSPort *port = [NSPort port];
+    [currentRunLoop addPort:port forMode:NSDefaultRunLoopMode];
+
+    [currentRunLoop run];
+    NSLog(@"Processing events end");
+  }
+}
 
 CGEventRef eventCallback(CGEventTapProxy proxy, CGEventType type,
                          CGEventRef event, void *refcon) {
@@ -120,7 +134,7 @@ void start_monitoring(MouseEventCallback mouseCallback,
                      kCFRunLoopCommonModes);
   CGEventTapEnable(_eventTap, true);
 
-  [[NSRunLoop currentRunLoop] run];
+  // start_run_loop();
 }
 
 const char *get_app_icon_data(const char *bundle_id) {
@@ -163,17 +177,4 @@ void free_icon_data(const char *data) {
   if (data) {
     free((void *)data);
   }
-}
-
-BOOL start_window_observer_monitoring(WindowChangeCallback callback) {
-  [[WindowObserver sharedObserver] startObservingWithCallback:callback];
-  return [[WindowObserver sharedObserver] isObserving];
-}
-
-void stop_window_observer_monitoring(void) {
-  [[WindowObserver sharedObserver] stopObserving];
-}
-
-BOOL is_window_observer_monitoring(void) {
-  return [[WindowObserver sharedObserver] isObserving];
 }

@@ -1,7 +1,6 @@
 #import "AccessibilityUtils.h"
 #import "Application.h"
 #import "SiteBlocker.h"
-#import "WindowObserver.h"
 #import <Cocoa/Cocoa.h>
 
 typedef NS_ENUM(int32_t, MouseEventType) {
@@ -31,6 +30,3 @@ const char *get_app_icon_data(const char *bundle_id);
 void free_icon_data(const char *data);
 void start_monitoring(MouseEventCallback mouseCallback,
                       KeyboardEventCallback keyboardCallback);
-BOOL start_window_observer_monitoring(WindowChangeCallback callback);
-void stop_window_observer_monitoring(void);
-BOOL is_window_observer_monitoring(void);

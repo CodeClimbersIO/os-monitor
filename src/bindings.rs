@@ -62,16 +62,6 @@ extern "C" {
     pub fn is_url_blocked(url: *const c_char) -> bool;
     pub fn redirect_to_vibes_page() -> bool;
     pub fn request_automation_permission(bundle_id: *const c_char) -> bool;
-    pub fn start_window_observer_monitoring(
-        window_change_callback: extern "C" fn(
-            *const c_char,
-            *const c_char,
-            *const c_char,
-            *const c_char,
-        ),
-    ) -> bool;
-    pub fn stop_window_observer_monitoring();
-    pub fn is_window_observer_monitoring() -> bool;
 }
 
 #[cfg(target_os = "windows")]

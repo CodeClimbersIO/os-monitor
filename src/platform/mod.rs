@@ -43,15 +43,3 @@ pub fn stop_site_blocking() {
 pub fn request_automation_permission(bundle_id: &str) -> bool {
     platform_request_automation_permission(bundle_id)
 }
-
-pub fn start_window_observer_monitoring() -> bool {
-    platform_start_window_observer_monitoring()
-}
-
-pub fn stop_window_observer_monitoring() {
-    platform_stop_window_observer_monitoring()
-}
-
-pub fn is_window_observer_monitoring() -> bool {
-    platform_is_window_observer_monitoring()
-}

@@ -152,6 +152,7 @@ extern "C" fn mouse_event_callback(_: f64, _: f64, _: i32, _: i32) {
 }
 
 extern "C" fn keyboard_event_callback(keycode: i32) {
+    log::trace!("keyboard_event_callback");
     let mut has_activity = HAS_KEYBOARD_ACTIVITY.lock().unwrap();
     *has_activity = true;
 
@@ -327,7 +328,7 @@ pub(crate) fn platform_start_monitoring(monitor: Arc<Monitor>) {
     log::trace!("platform_start_monitoring end");
 
     // Start observer-based window monitoring
-    platform_start_window_observer_monitoring();
+    // platform_start_window_observer_monitoring();
 
     // Also keep the existing monitoring for mouse/keyboard events
     unsafe {
@@ -370,69 +371,4 @@ pub(crate) fn platform_request_automation_permission(bundle_id: &str) -> bool {
             Err(_) => false,
         }
     }
-}
-
-extern "C" fn window_observer_callback(
-    app_name: *const c_char,
-    window_title: *const c_char,
-    bundle_id: *const c_char,
-    url: *const c_char,
-) {
-    log::warn!("window_observer_callback start");
-
-    let app_name = unsafe {
-        if app_name.is_null() {
-            String::new()
-        } else {
-            CStr::from_ptr(app_name).to_string_lossy().to_string()
-        }
-    };
-
-    let title = unsafe {
-        if window_title.is_null() {
-            String::new()
-        } else {
-            CStr::from_ptr(window_title).to_string_lossy().to_string()
-        }
-    };
-
-    let bundle_id = unsafe {
-        if bundle_id.is_null() {
-            None
-        } else {
-            Some(CStr::from_ptr(bundle_id).to_string_lossy().to_string())
-        }
-    };
-    let url = unsafe {
-        if url.is_null() {
-            None
-        } else {
-            Some(CStr::from_ptr(url).to_string_lossy().to_string())
-        }
-    };
-
-    let monitor_guard = MONITOR.lock().unwrap();
-    if let Some(monitor) = monitor_guard.as_ref() {
-        monitor.on_window_event(WindowEvent {
-            window_title: title,
-            app_name,
-            url,
-            bundle_id,
-            platform: Platform::Mac,
-        });
-    }
-}
-
-pub(crate) fn platform_start_window_observer_monitoring() -> bool {
-    log::trace!("Starting window observer monitoring");
-    unsafe { bindings::start_window_observer_monitoring(window_observer_callback) }
-}
-
-pub(crate) fn platform_stop_window_observer_monitoring() {
-    log::trace!("Stopping window observer monitoring");
-    unsafe { bindings::stop_window_observer_monitoring() }
-}
-
-pub(crate) fn platform_is_window_observer_monitoring() -> bool {
-    unsafe { bindings::is_window_observer_monitoring() }
 }
