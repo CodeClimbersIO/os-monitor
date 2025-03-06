@@ -26,10 +26,12 @@ BOOL isDomain(NSString *str);
 
 - (AccessibilityElement *)findUrlElement;
 - (AccessibilityElement *)findUrlElementInElement:
-    (AccessibilityElement *)element;
+                              (AccessibilityElement *)element
+                                            depth:(int)depth;
 - (AccessibilityElement *)findAddressBar;
 - (AccessibilityElement *)findAddressBarInElement:
-    (AccessibilityElement *)element;
+                              (AccessibilityElement *)element
+                                            depth:(int)depth;
 @end
 
 @interface FocusedApp : NSObject
@@ -41,6 +43,7 @@ BOOL isDomain(NSString *str);
 - (instancetype)initWithRunningApplication:(NSRunningApplication *)app;
 - (NSString *)appName;
 - (NSString *)bundleId;
+- (NSString *)url;
 - (AppWindow *)focusedWindow;
 - (WindowTitle *)windowTitleStructWithWindow;
 - (BOOL)isSupportedBrowser;

@@ -8,12 +8,10 @@ static BOOL siteBlockingEnabled = NO;
 static NSMutableArray<NSString *> *blockedUrls = nil;
 static NSString *vibesUrl = nil;
 
-// Function declarations (prototypes)
 void simulateKeyPress(CGKeyCode keyCode, CGEventFlags flags);
 
 void fallbackNavigation(NSString *url);
 
-// Simulate a key press
 void simulateKeyPress(CGKeyCode keyCode, CGEventFlags flags) {
   CGEventRef keyDown = CGEventCreateKeyboardEvent(NULL, keyCode, true);
   CGEventRef keyUp = CGEventCreateKeyboardEvent(NULL, keyCode, false);
@@ -147,6 +145,28 @@ BOOL hasAutomationPermission(NSString *bundleId) {
   return (errorInfo == nil);
 }
 
+void commandBarRedirect() {
+
+  NSLog(@"using command bar redirect");
+  // Fallback: try key sequence
+  // Press Cmd+L to focus address bar
+  simulateKeyPress(37, kCGEventFlagMaskCommand); // Cmd+L
+  usleep(100000);                                // 100ms delay
+
+  // Use clipboard to set URL
+  NSPasteboard *pasteboard = [NSPasteboard generalPasteboard];
+  [pasteboard clearContents];
+  [pasteboard writeObjects:@[ vibesUrl ]];
+  usleep(50000); // 50ms delay
+
+  // Press Cmd+V to paste
+  simulateKeyPress(9, kCGEventFlagMaskCommand); // Cmd+V
+  usleep(100000);                               // 100ms delay
+
+  // Press Enter
+  simulateKeyPress(36, 0); // Return key
+}
+
 BOOL redirect_to_vibes_page(void) {
   @autoreleasepool {
     NSLog(@"Redirecting to vibes page");
@@ -163,13 +183,7 @@ BOOL redirect_to_vibes_page(void) {
       return NO;
     }
 
-    // Use dispatch_async for the fallback method
-    // Try AppleScript redirection first, and only if it fails, use the
-    // fallback
-    if (redirectUsingAppleScript(frontApp.bundleId, vibesUrl)) {
-      NSLog(@"Successfully redirected using AppleScript");
-      return YES; // Return immediately if AppleScript was successful
-    }
+    commandBarRedirect();
 
     NSLog(@"Successfully redirected to vibes page");
     return YES; // Return success for the main function since we've started the

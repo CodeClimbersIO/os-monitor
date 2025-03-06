@@ -17,6 +17,11 @@
   }
 }
 
+- (void)focus {
+  AXUIElementSetAttributeValue(_axUIElement, kAXFocusedAttribute,
+                               kCFBooleanTrue);
+}
+
 - (void)printAttributesWithDepth:(int)depth maxDepth:(int)maxDepth {
   if (!_axUIElement)
     return;
@@ -151,6 +156,11 @@
     return (__bridge_transfer NSString *)titleRef;
   }
   return nil;
+}
+
+- (AXError)setValue:(NSString *)value {
+  return AXUIElementSetAttributeValue(_axUIElement, kAXValueAttribute,
+                                      (__bridge CFTypeRef)value);
 }
 
 - (AccessibilityElement *)valueForAttribute:(CFStringRef)attribute {

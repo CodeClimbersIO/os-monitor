@@ -6,6 +6,7 @@
 @property(nonatomic, readonly) AXUIElementRef axUIElement;
 
 - (instancetype)initWithAXUIElement:(AXUIElementRef)element;
+- (void)focus;
 - (void)printAttributesWithDepth:(int)depth maxDepth:(int)maxDepth;
 - (void)printAttributes;
 
@@ -19,6 +20,7 @@
 
 // Get a specific attribute as an AccessibilityElement
 - (AccessibilityElement *)valueForAttribute:(CFStringRef)attribute;
+- (AXError)setValue:(NSString *)value;
 
 // New observer methods
 - (BOOL)addObserver:(AXObserverRef)observer

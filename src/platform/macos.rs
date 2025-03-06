@@ -2,9 +2,7 @@ use crate::event::{Platform, WindowEvent};
 use crate::MonitorError;
 use crate::{bindings, event::EventCallback, Monitor};
 use once_cell::sync::Lazy;
-use std::ffi::c_char;
-use std::ffi::{CStr, CString};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::ffi::{c_char, CStr, CString};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -24,21 +22,6 @@ static FOCUSED_WINDOW: Mutex<WindowTitle> = Mutex::new(WindowTitle {
     app_name: String::new(),
     title: String::new(),
 });
-
-static URL_BLOCKING_IN_PROGRESS: Lazy<Mutex<bool>> = Lazy::new(|| Mutex::new(false));
-static CURRENT_BLOCKING_THREAD: Lazy<Mutex<Option<Arc<AtomicBool>>>> =
-    Lazy::new(|| Mutex::new(None));
-
-// List of known browser bundle IDs
-const BROWSER_BUNDLE_IDS: &[&str] = &[
-    "com.apple.Safari",
-    "com.google.Chrome",
-    "org.mozilla.firefox",
-    "com.microsoft.edgemac",
-    "com.brave.Browser",
-    "com.operasoftware.Opera",
-    "com.vivaldi.Vivaldi",
-];
 
 fn detect_focused_window() {
     unsafe {
@@ -66,6 +49,16 @@ fn detect_focused_window() {
         );
         log::trace!("  detect_focused_window bundle_id: {:?}", bundle_id);
         log::trace!("  detect_focused_window url: {:?}", url);
+
+        // Check if URL is blocked and redirect if needed
+        if let Some(url_str) = &url {
+            log::trace!("is blocked?");
+            if bindings::is_url_blocked(url_str.as_ptr() as *const i8) {
+                log::trace!("URL is blocked, redirecting to vibes page: {}", url_str);
+                let redirect_result = bindings::redirect_to_vibes_page();
+                log::trace!("Redirect result: {}", redirect_result);
+            }
+        }
 
         {
             log::trace!("  detect_focused_window lock");
@@ -96,170 +89,16 @@ fn detect_focused_window() {
     }
 }
 
-/// Checks if the current URL is blocked and redirects if necessary
-/// Returns true if URL was blocked and redirection was successful, false otherwise
-fn check_and_block_url() -> bool {
-    // Add a timeout to prevent hanging
-    let now = std::time::Instant::now();
-    unsafe {
-        let window_title = bindings::detect_focused_window();
-        if window_title.is_null() {
-            return false;
-        }
-
-        // Check if the current app is a browser
-        if let Some(bundle_id) = (*window_title).get_bundle_id() {
-            if !BROWSER_BUNDLE_IDS.iter().any(|&id| id == bundle_id) {
-                log::warn!(
-                    "Current app is not a browser ({}), ignoring URL blocking",
-                    bundle_id
-                );
-                return false;
-            }
-        } else {
-            log::warn!("No bundle ID available, ignoring URL blocking");
-            return false;
-        }
-
-        // Check if the URL is blocked
-        if let Some(url) = (*window_title).get_url() {
-            // Add debug logging
-            log::warn!("Checking URL: {}", url);
-
-            // Check for timeout
-            if now.elapsed() > std::time::Duration::from_secs(5) {
-                log::error!("URL checking timed out - aborting");
-                return false;
-            }
-
-            let c_url = CString::new(url.clone()).unwrap();
-            if bindings::is_url_blocked(c_url.as_ptr()) {
-                log::trace!("URL is blocked, redirecting to vibes page: {}", url);
-                let redirect_result = bindings::redirect_to_vibes_page();
-                log::trace!("Redirect result: {}", redirect_result);
-                return redirect_result;
-            }
-        }
-    }
-
-    false
-}
-
 extern "C" fn mouse_event_callback(_: f64, _: f64, _: i32, _: i32) {
     // Store event in vector
     let mut has_activity = HAS_MOUSE_ACTIVITY.lock().unwrap();
     *has_activity = true;
 }
 
-extern "C" fn keyboard_event_callback(keycode: i32) {
+extern "C" fn keyboard_event_callback(_: i32) {
     log::trace!("keyboard_event_callback");
     let mut has_activity = HAS_KEYBOARD_ACTIVITY.lock().unwrap();
     *has_activity = true;
-
-    // Check if Enter key was pressed (keycode 36)
-    if keycode == 36 {
-        log::warn!("Enter key pressed");
-
-        // Signal any existing thread to stop and start a new one
-        {
-            let mut thread_guard = CURRENT_BLOCKING_THREAD.lock().unwrap();
-            if let Some(stop_flag) = thread_guard.as_ref() {
-                // Signal the existing thread to stop
-                stop_flag.store(true, Ordering::SeqCst);
-                log::trace!("Signaled existing URL blocking thread to stop");
-            }
-
-            // Create a new stop flag for the new thread
-            let stop_flag = Arc::new(AtomicBool::new(false));
-            *thread_guard = Some(stop_flag.clone());
-
-            // Spawn a new thread with the stop flag
-            std::thread::spawn(move || {
-                attempt_url_blocking(stop_flag);
-            });
-        }
-    }
-}
-
-fn attempt_url_blocking(stop_flag: Arc<AtomicBool>) {
-    // Mark URL blocking as in progress
-    {
-        let mut blocking_in_progress = URL_BLOCKING_IN_PROGRESS.lock().unwrap();
-        *blocking_in_progress = true;
-    }
-
-    std::thread::sleep(std::time::Duration::from_millis(50));
-
-    let mut retry_count = 0;
-    let max_retries = 5;
-
-    while retry_count < max_retries {
-        // Check if we've been signaled to stop
-        if stop_flag.load(Ordering::SeqCst) {
-            log::trace!("URL blocking thread received stop signal, terminating");
-
-            // Clear the in-progress flag only if we're the thread being stopped
-            // and not a new thread that's just starting
-            let thread_guard = CURRENT_BLOCKING_THREAD.lock().unwrap();
-            if let Some(current_flag) = thread_guard.as_ref() {
-                if Arc::ptr_eq(current_flag, &stop_flag) {
-                    let mut blocking_in_progress = URL_BLOCKING_IN_PROGRESS.lock().unwrap();
-                    *blocking_in_progress = false;
-                }
-            }
-
-            return;
-        }
-
-        log::warn!("URL blocking attempt {}", retry_count);
-        if check_and_block_url() {
-            break;
-        }
-
-        // Exponential backoff: 500ms, 1000ms, 2000ms, etc.
-        let backoff_ms = 500 * (2_u64.pow(retry_count));
-        log::trace!("URL blocking attempt failed, retrying in {}ms", backoff_ms);
-
-        // Sleep in small chunks so we can check for stop signals
-        let start_time = std::time::Instant::now();
-        let sleep_chunk = std::time::Duration::from_millis(100);
-
-        while start_time.elapsed() < std::time::Duration::from_millis(backoff_ms) {
-            std::thread::sleep(sleep_chunk);
-
-            // Check if we've been signaled to stop
-            if stop_flag.load(Ordering::SeqCst) {
-                log::trace!("URL blocking thread received stop signal during backoff, terminating");
-
-                // Clear the in-progress flag only if we're the thread being stopped
-                let thread_guard = CURRENT_BLOCKING_THREAD.lock().unwrap();
-                if let Some(current_flag) = thread_guard.as_ref() {
-                    if Arc::ptr_eq(current_flag, &stop_flag) {
-                        let mut blocking_in_progress = URL_BLOCKING_IN_PROGRESS.lock().unwrap();
-                        *blocking_in_progress = false;
-                    }
-                }
-
-                return;
-            }
-        }
-
-        retry_count += 1;
-    }
-
-    if retry_count == max_retries {
-        log::warn!("Failed to block URL after {} attempts", max_retries);
-    }
-
-    // Mark URL blocking as no longer in progress, but only if we're still the current thread
-    let mut thread_guard = CURRENT_BLOCKING_THREAD.lock().unwrap();
-    if let Some(current_flag) = thread_guard.as_ref() {
-        if Arc::ptr_eq(current_flag, &stop_flag) {
-            let mut blocking_in_progress = URL_BLOCKING_IN_PROGRESS.lock().unwrap();
-            *blocking_in_progress = false;
-            *thread_guard = None;
-        }
-    }
 }
 
 fn send_buffered_events() {

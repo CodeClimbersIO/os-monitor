@@ -53,17 +53,19 @@ BOOL isDomain(NSString *str) {
  * @return The URL element if found, otherwise nil
  */
 - (AccessibilityElement *)findUrlElement {
-  return [self findUrlElementInElement:_accessibilityElement];
+  return [self findUrlElementInElement:_accessibilityElement depth:0];
 }
 
 /**
  * Helper method to recursively search for URL element
  * @param element The accessibility element to search
+ * @param depth Current recursion depth
  * @return The URL element if found, otherwise nil
  */
 - (AccessibilityElement *)findUrlElementInElement:
-    (AccessibilityElement *)element {
-  if (!element)
+                              (AccessibilityElement *)element
+                                            depth:(int)depth {
+  if (!element || depth >= 10)
     return nil;
 
   NSString *role = [element role];
@@ -81,7 +83,7 @@ BOOL isDomain(NSString *str) {
     AccessibilityElement *childElement = [[AccessibilityElement alloc]
         initWithAXUIElement:(__bridge AXUIElementRef)child];
     AccessibilityElement *urlElement =
-        [self findUrlElementInElement:childElement];
+        [self findUrlElementInElement:childElement depth:depth + 1];
     if (urlElement != nil) {
       return urlElement;
     }
@@ -96,17 +98,19 @@ BOOL isDomain(NSString *str) {
  * @return The URL field if found, otherwise nil
  */
 - (AccessibilityElement *)findAddressBar {
-  return [self findAddressBarInElement:_accessibilityElement];
+  return [self findAddressBarInElement:_accessibilityElement depth:0];
 }
 
 /**
  * Helper method to recursively search for address bar
  * @param element The accessibility element to search
+ * @param depth Current recursion depth
  * @return The address bar element if found, otherwise nil
  */
 - (AccessibilityElement *)findAddressBarInElement:
-    (AccessibilityElement *)element {
-  if (!element.axUIElement)
+                              (AccessibilityElement *)element
+                                            depth:(int)depth {
+  if (!element.axUIElement || depth >= 10)
     return nil;
 
   // Get the role
@@ -146,7 +150,6 @@ BOOL isDomain(NSString *str) {
       return element;
     }
   } else if ([_parentApp isArc]) {
-    NSLog(@"Arc browser detected");
 
     // Check for the identifier attribute
     NSString *identifier = [element identifier];
@@ -162,8 +165,8 @@ BOOL isDomain(NSString *str) {
   for (id child in children) {
     AccessibilityElement *childElement = [[AccessibilityElement alloc]
         initWithAXUIElement:(__bridge AXUIElementRef)child];
-    AccessibilityElement *urlField =
-        [self findAddressBarInElement:childElement];
+    AccessibilityElement *urlField = [self findAddressBarInElement:childElement
+                                                             depth:depth + 1];
     if (urlField) {
       return urlField;
     }
@@ -244,6 +247,15 @@ BOOL isDomain(NSString *str) {
 
 - (NSString *)bundleId {
   return _runningApplication.bundleIdentifier;
+}
+
+- (NSString *)url {
+  AppWindow *window = [self focusedWindow];
+  if (!window) {
+    NSLog(@"Failed to get focused window");
+    return nil;
+  }
+  return [window url];
 }
 
 - (AppWindow *)focusedWindow {
