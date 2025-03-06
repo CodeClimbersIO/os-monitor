@@ -101,7 +101,6 @@ void stop_blocking(void) {
 }
 
 BOOL is_blocked(const char *external_app_id) {
-  NSLog(@"external_app_id: %@", external_app_id);
   if (!external_app_id || !siteBlockingEnabled || blockedApps.count == 0) {
     return NO;
   }

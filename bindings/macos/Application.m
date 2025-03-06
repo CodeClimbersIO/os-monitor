@@ -43,19 +43,6 @@ BOOL isDomain(NSString *str) {
   if (urlElement) {
     NSString *rawUrl = [urlElement value];
     NSLog(@"rawUrl: %@", rawUrl);
-    // Clean the URL string - remove any non-printable characters
-    if (rawUrl) {
-      NSCharacterSet *nonPrintableSet = [[NSCharacterSet
-          characterSetWithRange:NSMakeRange(32, 95)] invertedSet];
-      NSRange range = [rawUrl rangeOfCharacterFromSet:nonPrintableSet];
-      if (range.location != NSNotFound) {
-        NSLog(@"URL contains non-printable characters, cleaning: %@", rawUrl);
-        rawUrl = [[rawUrl componentsSeparatedByCharactersInSet:nonPrintableSet]
-            componentsJoinedByString:@""];
-        NSLog(@"Cleaned URL: %@", rawUrl);
-      }
-    }
-
     return rawUrl;
   }
   return nil;

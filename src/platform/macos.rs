@@ -54,7 +54,7 @@ fn detect_focused_window() {
         if let Some(url_str) = &url {
             log::info!("is blocked? {}", url_str);
             let c_url = CString::new(url_str.clone()).unwrap_or_default();
-
+            log::info!("c_url: {:?}", c_url);
             if bindings::is_blocked(c_url.as_ptr()) {
                 log::info!("URL is blocked, redirecting to vibes page: {}", url_str);
                 let redirect_result = bindings::redirect_to_vibes_page();
