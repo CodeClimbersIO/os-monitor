@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use os_monitor::{
     detect_changes, get_application_icon_data, has_accessibility_permissions,
-    request_accessibility_permissions, start_monitoring, start_site_blocking, Monitor, WindowEvent,
+    request_accessibility_permissions, start_blocking, start_monitoring, Monitor, WindowEvent,
 };
 
 fn on_keyboard_events(has_activity: bool) {
@@ -38,15 +38,17 @@ fn main() {
     monitor.register_window_callback(Box::new(on_window_event));
 
     std::thread::spawn(move || {
-        let blocked_urls = vec![
+        let blocked_app_ids = vec![
             "facebook.com".to_string(),
             "twitter.com".to_string(),
             "instagram.com".to_string(),
             "x.com".to_string(),
+            "com.hnc.Discord".to_string(),
+            "com.tinyspeck.slackmacgap".to_string(),
         ];
 
         // Enable site blocking
-        start_site_blocking(&blocked_urls, "https://ebb.cool/vibes");
+        start_blocking(&blocked_app_ids, "https://ebb.cool/vibes");
         start_monitoring(Arc::new(monitor));
     });
     std::thread::spawn(move || {

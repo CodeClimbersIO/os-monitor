@@ -30,7 +30,7 @@ fn main() {
             manifest_dir
                 .join("bindings")
                 .join("macos")
-                .join("SiteBlocker.m"),
+                .join("Blocker.m"),
             manifest_dir
                 .join("bindings")
                 .join("macos")
@@ -54,7 +54,7 @@ fn main() {
             manifest_dir
                 .join("bindings")
                 .join("macos")
-                .join("SiteBlocker.h"),
+                .join("Blocker.h"),
             manifest_dir
                 .join("bindings")
                 .join("macos")

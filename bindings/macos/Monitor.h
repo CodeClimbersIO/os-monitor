@@ -1,6 +1,6 @@
 #import "AccessibilityUtils.h"
 #import "Application.h"
-#import "SiteBlocker.h"
+#import "Blocker.h"
 #import <Cocoa/Cocoa.h>
 
 typedef NS_ENUM(int32_t, MouseEventType) {

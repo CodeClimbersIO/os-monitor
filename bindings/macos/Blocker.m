@@ -1,11 +1,11 @@
-#import "SiteBlocker.h"
+#import "Blocker.h"
 #import "Application.h"
 #import <ApplicationServices/ApplicationServices.h>
 #import <Cocoa/Cocoa.h>
 
 // Static variables to store state
 static BOOL siteBlockingEnabled = NO;
-static NSMutableArray<NSString *> *blockedUrls = nil;
+static NSMutableArray<NSString *> *blockedApps = nil;
 static NSString *vibesUrl = nil;
 
 void simulateKeyPress(CGKeyCode keyCode, CGEventFlags flags);
@@ -27,9 +27,42 @@ void simulateKeyPress(CGKeyCode keyCode, CGEventFlags flags) {
   CFRelease(keyUp);
 }
 
-BOOL start_site_blocking(const char **blocked_urls, int url_count,
-                         const char *redirect_url) {
-  NSLog(@"start_site_blocking");
+void closeBlockedApplications(void) {
+  @autoreleasepool {
+
+    NSLog(@"Checking for blocked applications to close");
+
+    for (NSString *blockedAppId in blockedApps) {
+      NSArray *runningApps = [NSRunningApplication
+          runningApplicationsWithBundleIdentifier:blockedAppId];
+      NSRunningApplication *blockedApp = [runningApps firstObject];
+
+      // Check if the bundle ID contains the blocked URL string
+      // This is a simple approach - you might want to refine this logic
+      if (blockedApp) {
+        NSLog(@"Terminating blocked application: %@ (Bundle ID: %@)",
+              [blockedApp localizedName], blockedAppId);
+        [blockedApp terminate];
+
+        // If the app doesn't terminate gracefully, force quit after a delay
+        // dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 2 * NSEC_PER_SEC),
+        //                dispatch_get_main_queue(), ^{
+        //                  if ([app isTerminated] == NO) {
+        //                    NSLog(@"Force quitting application: %@",
+        //                          [app localizedName]);
+        //                    [app forceTerminate];
+        //                  }
+        //                });
+
+        break; // Move to the next application
+      }
+    }
+  }
+}
+
+BOOL start_blocking(const char **blocked_urls, int url_count,
+                    const char *redirect_url) {
+  NSLog(@"start_blocking");
   @autoreleasepool {
     // Check if redirect_url is provided (now required)
     if (!redirect_url) {
@@ -37,17 +70,17 @@ BOOL start_site_blocking(const char **blocked_urls, int url_count,
       return NO; // Return failure if redirect_url is not provided
     }
 
-    if (blockedUrls == nil) {
-      blockedUrls = [NSMutableArray array];
+    if (blockedApps == nil) {
+      blockedApps = [NSMutableArray array];
     } else {
-      [blockedUrls removeAllObjects];
+      [blockedApps removeAllObjects];
     }
 
     // Copy the URLs from C strings to NSString objects
     for (int i = 0; i < url_count; i++) {
       if (blocked_urls[i]) {
         NSString *url = [NSString stringWithUTF8String:blocked_urls[i]];
-        [blockedUrls addObject:url];
+        [blockedApps addObject:url];
         NSLog(@"Blocking URL: %@", url);
       }
     }
@@ -55,31 +88,33 @@ BOOL start_site_blocking(const char **blocked_urls, int url_count,
     // Set the redirect URL (now required)
     vibesUrl = [NSString stringWithUTF8String:redirect_url];
     NSLog(@"Redirect URL set to: %@", vibesUrl);
-
     siteBlockingEnabled = YES;
+    closeBlockedApplications();
     NSLog(@"Site blocking enabled");
     return YES;
   }
 }
 
-void stop_site_blocking(void) {
+void stop_blocking(void) {
   siteBlockingEnabled = NO;
   NSLog(@"Site blocking disabled");
 }
 
-BOOL is_url_blocked(const char *url) {
-  if (!url || !siteBlockingEnabled || blockedUrls.count == 0) {
+BOOL is_blocked(const char *external_app_id) {
+  NSLog(@"external_app_id: %@", external_app_id);
+  if (!external_app_id || !siteBlockingEnabled || blockedApps.count == 0) {
     return NO;
   }
 
   @autoreleasepool {
-    NSString *currentUrl = [NSString stringWithUTF8String:url];
-
+    NSString *currentAppId = [NSString stringWithUTF8String:external_app_id];
+    NSLog(@"currentAppId: %@", currentAppId);
     // Check if the current URL contains any of the blocked URLs
-    for (NSString *blockedUrl in blockedUrls) {
-      if ([currentUrl rangeOfString:blockedUrl options:NSCaseInsensitiveSearch]
+    for (NSString *blockedAppId in blockedApps) {
+      if ([currentAppId rangeOfString:blockedAppId
+                              options:NSCaseInsensitiveSearch]
               .location != NSNotFound) {
-        NSLog(@"URL %@ is blocked (matched %@)", currentUrl, blockedUrl);
+        NSLog(@"App ID %@ is blocked (matched %@)", currentAppId, blockedAppId);
         return YES;
       }
     }
@@ -186,8 +221,8 @@ BOOL redirect_to_vibes_page(void) {
     commandBarRedirect();
 
     NSLog(@"Successfully redirected to vibes page");
-    return YES; // Return success for the main function since we've started the
-                // async process
+    return YES; // Return success for the main function since we've started
+                // the async process
   }
 }
 

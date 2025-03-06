@@ -32,12 +32,12 @@ pub fn start_monitoring(monitor: Arc<Monitor>) {
     platform_start_monitoring(monitor);
 }
 
-pub fn start_site_blocking(urls: &[String], redirect_url: &str) -> bool {
-    platform_start_site_blocking(urls, redirect_url)
+pub fn start_blocking(urls: &[String], redirect_url: &str) -> bool {
+    platform_start_blocking(urls, redirect_url)
 }
 
-pub fn stop_site_blocking() {
-    platform_stop_site_blocking()
+pub fn stop_blocking() {
+    platform_stop_blocking()
 }
 
 pub fn request_automation_permission(bundle_id: &str) -> bool {

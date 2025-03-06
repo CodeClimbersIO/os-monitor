@@ -52,11 +52,13 @@ fn detect_focused_window() {
 
         // Check if URL is blocked and redirect if needed
         if let Some(url_str) = &url {
-            log::trace!("is blocked?");
-            if bindings::is_url_blocked(url_str.as_ptr() as *const i8) {
-                log::trace!("URL is blocked, redirecting to vibes page: {}", url_str);
+            log::info!("is blocked? {}", url_str);
+            let c_url = CString::new(url_str.clone()).unwrap_or_default();
+
+            if bindings::is_blocked(c_url.as_ptr()) {
+                log::info!("URL is blocked, redirecting to vibes page: {}", url_str);
                 let redirect_result = bindings::redirect_to_vibes_page();
-                log::trace!("Redirect result: {}", redirect_result);
+                log::info!("Redirect result: {}", redirect_result);
             }
         }
 
@@ -176,8 +178,8 @@ pub(crate) fn platform_start_monitoring(monitor: Arc<Monitor>) {
     log::trace!("bindings::start_monitoring end");
 }
 
-pub(crate) fn platform_start_site_blocking(urls: &[String], redirect_url: &str) -> bool {
-    log::trace!("platform_start_site_blocking start");
+pub(crate) fn platform_start_blocking(urls: &[String], redirect_url: &str) -> bool {
+    log::trace!("platform_start_blocking start");
     let c_urls: Vec<CString> = urls
         .iter()
         .map(|url| CString::new(url.as_str()).unwrap())
@@ -187,9 +189,9 @@ pub(crate) fn platform_start_site_blocking(urls: &[String], redirect_url: &str) 
 
     let c_redirect_url = CString::new(redirect_url).unwrap();
 
-    log::trace!("platform_start_site_blocking start");
+    log::trace!("platform_start_blocking start");
     unsafe {
-        bindings::start_site_blocking(
+        bindings::start_blocking(
             c_urls_ptrs.as_ptr(),
             c_urls_ptrs.len() as i32,
             c_redirect_url.as_ptr(),
@@ -197,9 +199,9 @@ pub(crate) fn platform_start_site_blocking(urls: &[String], redirect_url: &str) 
     }
 }
 
-pub(crate) fn platform_stop_site_blocking() {
+pub(crate) fn platform_stop_blocking() {
     unsafe {
-        bindings::stop_site_blocking();
+        bindings::stop_blocking();
     }
 }
 

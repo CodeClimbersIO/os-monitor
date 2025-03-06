@@ -41,7 +41,22 @@ BOOL isDomain(NSString *str) {
 - (NSString *)url {
   AccessibilityElement *urlElement = [self findUrlElement];
   if (urlElement) {
-    return [urlElement value];
+    NSString *rawUrl = [urlElement value];
+    NSLog(@"rawUrl: %@", rawUrl);
+    // Clean the URL string - remove any non-printable characters
+    if (rawUrl) {
+      NSCharacterSet *nonPrintableSet = [[NSCharacterSet
+          characterSetWithRange:NSMakeRange(32, 95)] invertedSet];
+      NSRange range = [rawUrl rangeOfCharacterFromSet:nonPrintableSet];
+      if (range.location != NSNotFound) {
+        NSLog(@"URL contains non-printable characters, cleaning: %@", rawUrl);
+        rawUrl = [[rawUrl componentsSeparatedByCharactersInSet:nonPrintableSet]
+            componentsJoinedByString:@""];
+        NSLog(@"Cleaned URL: %@", rawUrl);
+      }
+    }
+
+    return rawUrl;
   }
   return nil;
 }
@@ -339,7 +354,7 @@ WindowTitle *detect_focused_window(void) {
   return [app windowTitleStructWithWindow];
 }
 
-// Export a C function to get the frontmost app for use in SiteBlocker.m
+// Export a C function to get the frontmost app for use in Blocker.m
 NSRunningApplication *get_frontmost_app(void) {
   return [FocusedApp getFrontmostApp];
 }
