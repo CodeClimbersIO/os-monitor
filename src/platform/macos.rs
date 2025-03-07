@@ -213,3 +213,28 @@ pub(crate) fn platform_request_automation_permission(bundle_id: &str) -> bool {
         }
     }
 }
+
+pub(crate) fn platform_create_screen_border(
+    red: f64,
+    green: f64,
+    blue: f64,
+    width: f64,
+    opacity: f64,
+) {
+    log::info!("attributes: {:?}", (red, green, blue, width, opacity));
+    unsafe {
+        bindings::create_screen_border(red, green, blue, width, opacity);
+    }
+}
+
+pub(crate) fn platform_remove_screen_border(border_window: &str) {
+    unsafe {
+        // bindings::remove_screen_border(CString::new(border_window).unwrap().as_ptr());
+    }
+}
+
+pub(crate) fn platform_run_loop_cycle() {
+    unsafe {
+        bindings::run_loop_cycle();
+    }
+}

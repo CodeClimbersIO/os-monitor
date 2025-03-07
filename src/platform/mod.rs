@@ -43,3 +43,15 @@ pub fn stop_blocking() {
 pub fn request_automation_permission(bundle_id: &str) -> bool {
     platform_request_automation_permission(bundle_id)
 }
+
+pub fn create_screen_border(red: f64, green: f64, blue: f64, width: f64, opacity: f64) {
+    platform_create_screen_border(red, green, blue, width, opacity)
+}
+
+pub fn remove_screen_border(border_window: &str) {
+    platform_remove_screen_border(border_window)
+}
+
+pub fn run_loop_cycle() {
+    platform_run_loop_cycle()
+}

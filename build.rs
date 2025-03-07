@@ -35,6 +35,7 @@ fn main() {
                 .join("bindings")
                 .join("macos")
                 .join("AccessibilityElement.m"),
+            manifest_dir.join("bindings").join("macos").join("UI.m"),
         ];
 
         // Define all header files (for dependency tracking)
@@ -59,6 +60,7 @@ fn main() {
                 .join("bindings")
                 .join("macos")
                 .join("AccessibilityElement.h"),
+            manifest_dir.join("bindings").join("macos").join("UI.h"),
         ];
 
         let out_dir = std::env::var("OUT_DIR").unwrap();

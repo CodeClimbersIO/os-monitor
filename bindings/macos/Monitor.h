@@ -30,3 +30,6 @@ const char *get_app_icon_data(const char *bundle_id);
 void free_icon_data(const char *data);
 void start_monitoring(MouseEventCallback mouseCallback,
                       KeyboardEventCallback keyboardCallback);
+void create_screen_border(double red, double green, double blue, double width,
+                          double opacity);
+void remove_screen_border(NSWindow *border_window);

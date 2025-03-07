@@ -44,6 +44,7 @@ impl RawWindowTitle {
 #[cfg(target_os = "macos")]
 #[link(name = "MacMonitor")]
 extern "C" {
+    pub fn run_loop_cycle();
     pub fn detect_focused_window() -> *const RawWindowTitle;
     pub fn has_accessibility_permissions() -> bool;
     pub fn request_accessibility_permissions() -> bool;
@@ -62,6 +63,8 @@ extern "C" {
     pub fn is_blocked(external_app_id: *const c_char) -> bool;
     pub fn redirect_to_vibes_page() -> bool;
     pub fn request_automation_permission(bundle_id: *const c_char) -> bool;
+    pub fn create_screen_border(red: f64, green: f64, blue: f64, width: f64, opacity: f64);
+    pub fn remove_screen_border(border_window: *const c_char);
 }
 
 #[cfg(target_os = "windows")]

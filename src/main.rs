@@ -1,8 +1,9 @@
 use std::sync::Arc;
 
 use os_monitor::{
-    detect_changes, get_application_icon_data, has_accessibility_permissions,
-    request_accessibility_permissions, start_blocking, start_monitoring, Monitor, WindowEvent,
+    create_screen_border, detect_changes, get_application_icon_data, has_accessibility_permissions,
+    request_accessibility_permissions, run_loop_cycle, start_blocking, start_monitoring, Monitor,
+    WindowEvent,
 };
 
 fn on_keyboard_events(has_activity: bool) {

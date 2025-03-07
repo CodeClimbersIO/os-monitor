@@ -1,6 +1,7 @@
 // Monitor.m
 
 #import "Monitor.h"
+#import "UI.h"
 #import <ApplicationServices/ApplicationServices.h>
 #import <Cocoa/Cocoa.h>
 #import <objc/runtime.h>
@@ -22,19 +23,11 @@ typedef void (*WebsiteVisitCallback)(const char *url);
 
 static MonitorHolder *monitorHolder = nil;
 
-void start_run_loop() {
-  @autoreleasepool {
-    NSLog(@"Processing events");
-    NSLog(@"Thread: %@", [NSThread currentThread]);
-
-    NSRunLoop *currentRunLoop = [NSRunLoop currentRunLoop];
-
-    NSPort *port = [NSPort port];
-    [currentRunLoop addPort:port forMode:NSDefaultRunLoopMode];
-
-    [currentRunLoop run];
-    NSLog(@"Processing events end");
-  }
+void run_loop_cycle() {
+  NSLog(@"Running run loop for 10ms");
+  NSDate *stopDate =
+      [NSDate dateWithTimeIntervalSinceNow:0.01]; // 1/100th of a second
+  [[NSRunLoop currentRunLoop] runUntilDate:stopDate];
 }
 
 CGEventRef eventCallback(CGEventTapProxy proxy, CGEventType type,
@@ -177,4 +170,14 @@ void free_icon_data(const char *data) {
   if (data) {
     free((void *)data);
   }
+}
+
+void create_screen_border(double red, double green, double blue, double width,
+                          double opacity) {
+  NSLog(@"Values: %f, %f, %f, %f, %f", red, green, blue, width, opacity);
+  create_border(red, green, blue, width, opacity);
+}
+
+void remove_screen_border(NSWindow *border_window) {
+  remove_border(border_window);
 }
