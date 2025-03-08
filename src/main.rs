@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
 use os_monitor::{
-    create_screen_border, detect_changes, get_application_icon_data, has_accessibility_permissions,
-    request_accessibility_permissions, run_loop_cycle, start_blocking, start_monitoring, Monitor,
-    WindowEvent,
+    create_screen_border, create_screen_false_color, create_screen_grayscale, detect_changes,
+    get_application_icon_data, has_accessibility_permissions, request_accessibility_permissions,
+    run_loop_cycle, start_blocking, start_monitoring, Monitor, WindowEvent,
 };
 
 fn on_keyboard_events(has_activity: bool) {
@@ -28,6 +28,10 @@ fn main() {
         let request_permissions = request_accessibility_permissions();
         log::trace!("request_permissions: {}", request_permissions);
     }
+
+    // Create a grayscale effect with 0.7 opacity
+    create_screen_grayscale(0.9);
+    run_loop_cycle();
 
     let icon_data = get_application_icon_data("md.obsidian");
     log::trace!("icon_data: {}", icon_data.unwrap().len());

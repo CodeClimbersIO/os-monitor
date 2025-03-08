@@ -33,3 +33,7 @@ void start_monitoring(MouseEventCallback mouseCallback,
 void create_screen_border(double red, double green, double blue, double width,
                           double opacity);
 void remove_screen_border(NSWindow *border_window);
+void create_screen_false_color(double opacity, double color0_r, double color0_g,
+                               double color0_b, double color1_r,
+                               double color1_g, double color1_b);
+void remove_screen_false_color(NSWindow *false_color_window);

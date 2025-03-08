@@ -181,3 +181,24 @@ void create_screen_border(double red, double green, double blue, double width,
 void remove_screen_border(NSWindow *border_window) {
   remove_border(border_window);
 }
+
+void create_screen_grayscale(double opacity) {
+  NSLog(@"Creating grayscale effect with opacity: %f", opacity);
+  create_grayscale_effect(opacity);
+}
+
+void remove_screen_grayscale(NSWindow *grayscale_window) {
+  remove_grayscale_effect(grayscale_window);
+}
+
+void create_screen_false_color(double opacity, double color0_r, double color0_g,
+                               double color0_b, double color1_r,
+                               double color1_g, double color1_b) {
+  NSLog(@"Creating false color effect with opacity: %f", opacity);
+  create_false_color_effect(opacity, color0_r, color0_g, color0_b, color1_r,
+                            color1_g, color1_b);
+}
+
+void remove_screen_false_color(NSWindow *false_color_window) {
+  remove_false_color_effect(false_color_window);
+}

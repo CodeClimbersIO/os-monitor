@@ -55,3 +55,29 @@ pub fn remove_screen_border(border_window: &str) {
 pub fn run_loop_cycle() {
     platform_run_loop_cycle()
 }
+
+pub fn create_screen_grayscale(opacity: f64) {
+    platform_create_screen_grayscale(opacity)
+}
+
+pub fn remove_screen_grayscale(grayscale_window: &str) {
+    platform_remove_screen_grayscale(grayscale_window)
+}
+
+pub fn create_screen_false_color(
+    opacity: f64,
+    color0_r: f64,
+    color0_g: f64,
+    color0_b: f64,
+    color1_r: f64,
+    color1_g: f64,
+    color1_b: f64,
+) {
+    platform_create_screen_false_color(
+        opacity, color0_r, color0_g, color0_b, color1_r, color1_g, color1_b,
+    );
+}
+
+pub fn remove_screen_false_color(false_color_window: &str) {
+    platform_remove_screen_false_color(false_color_window);
+}
