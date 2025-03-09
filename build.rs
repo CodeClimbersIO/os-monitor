@@ -108,18 +108,35 @@ fn main() {
         let dylib_path = out_path.join(dylib_name);
 
         let profile = env::var("PROFILE").unwrap();
-        let target_dir = manifest_dir.join("target").join(profile);
+        let default_target_dir = manifest_dir.join("target").join(profile);
+        let monitor_target_dir = env::var("MONITOR_TARGET_DIR")
+            .unwrap_or_else(|_| default_target_dir.display().to_string());
+        let target_dir = PathBuf::from(monitor_target_dir);
 
-        match std::fs::copy(&dylib_path, target_dir.join(dylib_name)) {
+        let target_dylib_path = target_dir.join(dylib_name);
+
+        // Get absolute path of target directory first (which should exist)
+        let absolute_target_dir = target_dir.canonicalize().unwrap_or_else(|e| {
+            println!(
+                "cargo:warning=Failed to get absolute path of target dir: {}",
+                e
+            );
+            target_dir.clone()
+        });
+
+        // Construct absolute path of the dylib
+        let absolute_dylib_path = absolute_target_dir.join(dylib_name);
+
+        match std::fs::copy(&dylib_path, &target_dylib_path) {
             Ok(_) => println!(
                 "cargo:warning=Copied dylib to {}",
-                target_dir.join(dylib_name).display()
+                absolute_dylib_path.display()
             ),
             Err(e) => println!("cargo:warning=Failed to copy dylib: {}", e),
         }
         println!(
             "cargo:warning=Build script completed successfully, copied dylib to {}",
-            target_dir.join(dylib_name).display()
+            absolute_dylib_path.display()
         );
     } else if target_os == "windows" {
         println!("cargo:info=Building for Windows...");
