@@ -8,7 +8,7 @@ fn main() {
     println!("cargo:info=Target OS: {}", target_os);
 
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
-    println!("cargo:info=Manifest dir: {}", manifest_dir.display());
+    println!("cargo:warning=Manifest dir: {}", manifest_dir.display());
 
     if target_os == "macos" {
         println!("cargo:info=Building for macOS...");
@@ -107,27 +107,9 @@ fn main() {
         let dylib_name = "libMacMonitor.dylib";
         let dylib_path = out_path.join(dylib_name);
 
-        // Get the workspace root directory (where Cargo.toml is)
-        let workspace_dir = if let Ok(workspace) = env::var("CARGO_WORKSPACE_DIR") {
-            PathBuf::from(workspace)
-        } else {
-            // If not in a workspace, go up one directory from manifest_dir
-            manifest_dir.parent().unwrap_or(&manifest_dir).to_path_buf()
-        };
+        let profile = env::var("PROFILE").unwrap();
+        let target_dir = manifest_dir.join("target").join(profile);
 
-        // Create target directories if they don't exist
-        let profile = env::var("PROFILE").unwrap_or_else(|_| "debug".to_string());
-
-        let target_dir = workspace_dir.join("target").join(&profile);
-        std::fs::create_dir_all(&target_dir).unwrap_or_else(|e| {
-            println!(
-                "cargo:warning=Failed to create directory {}: {}",
-                target_dir.display(),
-                e
-            );
-        });
-
-        // Copy the dylib to the target directory
         match std::fs::copy(&dylib_path, target_dir.join(dylib_name)) {
             Ok(_) => println!(
                 "cargo:warning=Copied dylib to {}",
