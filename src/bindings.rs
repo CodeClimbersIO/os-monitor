@@ -42,7 +42,7 @@ impl RawWindowTitle {
 }
 
 #[cfg(target_os = "macos")]
-#[link(name = "MacMonitor")]
+#[link(name = "MacMonitor", kind = "dylib")]
 extern "C" {
     pub fn detect_focused_window() -> *const RawWindowTitle;
     pub fn has_accessibility_permissions() -> bool;

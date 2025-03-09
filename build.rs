@@ -66,7 +66,7 @@ fn main() {
         let include_dir = source_files[0].parent().unwrap();
 
         println!("cargo:info=Source files: {:?}", source_files);
-        println!("cargo:info=Output directory: {}", out_path.display());
+        println!("cargo:warning=Output directory: {}", out_path.display());
 
         // Build the Objective-C code using clang
         println!("cargo:info=Compiling Objective-C code...");
@@ -77,6 +77,8 @@ fn main() {
                 "-framework",
                 "Cocoa",
                 "-dynamiclib",
+                "-install_name",
+                "@rpath/libMacMonitor.dylib",
             ])
             // Add all source files as separate arguments
             .args(source_files.iter().map(|p| p.to_str().unwrap()))
@@ -93,18 +95,50 @@ fn main() {
             panic!("Objective-C compilation failed");
         }
 
+        println!("cargo:warning=Linking to path: {}", out_path.display());
         println!("cargo:info=Setting up library paths...");
         println!("cargo:rustc-link-search=native={}", out_path.display());
-        println!("cargo:rustc-link-lib=MacMonitor");
 
-        // Link against required frameworks
-        println!("cargo:rustc-link-lib=framework=Cocoa");
-        println!("cargo:rustc-link-lib=framework=Foundation");
-
-        // Tell Cargo to rerun if any of our source or header files change
         for file in source_files.iter().chain(header_files.iter()) {
             println!("cargo:rerun-if-changed={}", file.display());
         }
+
+        // Copy the dylib to the target directory for Tauri to find
+        let dylib_name = "libMacMonitor.dylib";
+        let dylib_path = out_path.join(dylib_name);
+
+        // Get the workspace root directory (where Cargo.toml is)
+        let workspace_dir = if let Ok(workspace) = env::var("CARGO_WORKSPACE_DIR") {
+            PathBuf::from(workspace)
+        } else {
+            // If not in a workspace, go up one directory from manifest_dir
+            manifest_dir.parent().unwrap_or(&manifest_dir).to_path_buf()
+        };
+
+        // Create target directories if they don't exist
+        let profile = env::var("PROFILE").unwrap_or_else(|_| "debug".to_string());
+
+        let target_dir = workspace_dir.join("target").join(&profile);
+        std::fs::create_dir_all(&target_dir).unwrap_or_else(|e| {
+            println!(
+                "cargo:warning=Failed to create directory {}: {}",
+                target_dir.display(),
+                e
+            );
+        });
+
+        // Copy the dylib to the target directory
+        match std::fs::copy(&dylib_path, target_dir.join(dylib_name)) {
+            Ok(_) => println!(
+                "cargo:warning=Copied dylib to {}",
+                target_dir.join(dylib_name).display()
+            ),
+            Err(e) => println!("cargo:warning=Failed to copy dylib: {}", e),
+        }
+        println!(
+            "cargo:warning=Build script completed successfully, copied dylib to {}",
+            target_dir.join(dylib_name).display()
+        );
     } else if target_os == "windows" {
         println!("cargo:info=Building for Windows...");
 
