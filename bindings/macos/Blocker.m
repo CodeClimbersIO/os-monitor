@@ -108,12 +108,10 @@ BOOL is_blocked(const char *external_app_id) {
   @autoreleasepool {
     NSString *currentAppId = [NSString stringWithUTF8String:external_app_id];
     NSLog(@"currentAppId: %@", currentAppId);
-    // Check if the current URL contains any of the blocked URLs
     for (NSString *blockedAppId in blockedApps) {
-      if ([currentAppId rangeOfString:blockedAppId
-                              options:NSCaseInsensitiveSearch]
-              .location != NSNotFound) {
-        NSLog(@"App ID %@ is blocked (matched %@)", currentAppId, blockedAppId);
+      if ([currentAppId caseInsensitiveCompare:blockedAppId] == NSOrderedSame) {
+        NSLog(@"App ID %@ is blocked (exact match with %@)", currentAppId,
+              blockedAppId);
         return YES;
       }
     }

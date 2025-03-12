@@ -4,6 +4,10 @@
 #import <ApplicationServices/ApplicationServices.h>
 
 BOOL isDomain(NSString *str) {
+  if (![str isKindOfClass:[NSString class]]) {
+    return NO;
+  }
+
   NSString *pattern = @"^(?:https?:\\/\\/"
                       @")?(?:www\\.)?[a-zA-Z0-9-]+(?:\\.[a-zA-Z0-9-]+)*\\.[a-"
                       @"zA-Z]{2,}(?:\\/[^\\s]*)?(?:\\?[^\\s]*)?$";
@@ -71,7 +75,6 @@ BOOL isDomain(NSString *str) {
     return nil;
 
   NSString *role = [element role];
-
   if ([role isEqualToString:NSAccessibilityStaticTextRole] ||
       [role isEqualToString:NSAccessibilityTextFieldRole]) {
     NSString *value = [element value];
@@ -333,12 +336,17 @@ BOOL isDomain(NSString *str) {
 
 // Modified version of detect_focused_window to use our new classes
 WindowTitle *detect_focused_window(void) {
-  FocusedApp *app = [FocusedApp frontmostApp];
-  if (!app) {
-    NSLog(@"Failed to get frontmost application");
-    return nil;
+  @try {
+    FocusedApp *app = [FocusedApp frontmostApp];
+    if (!app) {
+      NSLog(@"Failed to get frontmost application");
+      return nil;
+    }
+    return [app windowTitleStructWithWindow];
+  } @catch (NSException *exception) {
+    NSLog(@"Exception: %@", exception);
+    @throw exception;
   }
-  return [app windowTitleStructWithWindow];
 }
 
 // Export a C function to get the frontmost app for use in Blocker.m
