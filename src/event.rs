@@ -62,7 +62,8 @@ pub struct WindowEvent {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlockedApp {
     pub app_name: String,
-    pub bundle_id: String,
+    pub app_external_id: String,
+    pub is_site: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

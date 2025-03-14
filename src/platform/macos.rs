@@ -58,6 +58,20 @@ fn detect_focused_window() {
             if bindings::is_blocked(c_url.as_ptr()) {
                 log::info!("Url is blocked, redirecting to vibes page: {}", url_str);
                 let redirect_result = bindings::redirect_to_vibes_page();
+
+                let blocked_app = BlockedApp {
+                    app_name: app_name.to_string(),
+                    app_external_id: url_str.to_string(),
+                    is_site: true,
+                };
+
+                let monitor_guard = MONITOR.lock().unwrap();
+                if let Some(monitor) = monitor_guard.as_ref() {
+                    monitor.on_app_blocked(BlockedAppEvent {
+                        blocked_apps: vec![blocked_app],
+                    });
+                }
+
                 log::info!("Redirect result: {}", redirect_result);
             }
         }
@@ -141,7 +155,8 @@ extern "C" fn app_blocked_callback(
                 log::info!("App blocked: {} ({})", app_name_str, bundle_id_str);
                 blocked_apps.push(BlockedApp {
                     app_name: app_name_str,
-                    bundle_id: bundle_id_str,
+                    app_external_id: bundle_id_str,
+                    is_site: false,
                 });
             }
 

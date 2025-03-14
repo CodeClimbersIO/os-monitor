@@ -21,7 +21,7 @@ fn on_window_event(event: WindowEvent) {
 fn on_app_blocked(event: BlockedAppEvent) {
     log::warn!("Apps blocked:");
     for app in &event.blocked_apps {
-        log::warn!("  - {} ({})", app.app_name, app.bundle_id);
+        log::warn!("  - {} ({})", app.app_name, app.app_external_id);
     }
 }
 
