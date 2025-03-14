@@ -7,6 +7,11 @@
 static BOOL siteBlockingEnabled = NO;
 static NSMutableArray<NSString *> *blockedApps = nil;
 static NSString *vibesUrl = nil;
+static AppBlockedCallback appBlockedCallback = NULL;
+
+// Arrays to store blocked app information
+static NSMutableArray<NSString *> *batchAppNames = nil;
+static NSMutableArray<NSString *> *batchBundleIds = nil;
 
 void simulateKeyPress(CGKeyCode keyCode, CGEventFlags flags);
 
@@ -27,36 +32,48 @@ void simulateKeyPress(CGKeyCode keyCode, CGEventFlags flags) {
   CFRelease(keyUp);
 }
 
+void sendBlockedAppsBatch() {
+  if (appBlockedCallback != NULL && batchAppNames.count > 0) {
+    const char **appNamesCArray =
+        (const char **)malloc(batchAppNames.count * sizeof(char *));
+    const char **bundleIdsCArray =
+        (const char **)malloc(batchBundleIds.count * sizeof(char *));
+
+    for (NSUInteger i = 0; i < batchAppNames.count; i++) {
+      appNamesCArray[i] = [batchAppNames[i] UTF8String];
+      bundleIdsCArray[i] = [batchBundleIds[i] UTF8String];
+    }
+    appBlockedCallback(appNamesCArray, bundleIdsCArray,
+                       (int)batchAppNames.count);
+
+    free(appNamesCArray);
+    free(bundleIdsCArray);
+
+    [batchAppNames removeAllObjects];
+    [batchBundleIds removeAllObjects];
+  }
+}
+
+void addAppToBlockedBatch(NSString *appName, NSString *bundleId) {
+  if (batchAppNames == nil) {
+    batchAppNames = [NSMutableArray array];
+  }
+
+  if (batchBundleIds == nil) {
+    batchBundleIds = [NSMutableArray array];
+  }
+
+  [batchAppNames addObject:appName];
+  [batchBundleIds addObject:bundleId];
+}
+
 void closeBlockedApplications(void) {
   @autoreleasepool {
-
-    NSLog(@"Checking for blocked applications to close");
-
     for (NSString *blockedAppId in blockedApps) {
-      NSArray *runningApps = [NSRunningApplication
-          runningApplicationsWithBundleIdentifier:blockedAppId];
-      NSRunningApplication *blockedApp = [runningApps firstObject];
-
-      // Check if the bundle ID contains the blocked URL string
-      // This is a simple approach - you might want to refine this logic
-      if (blockedApp) {
-        NSLog(@"Terminating blocked application: %@ (Bundle ID: %@)",
-              [blockedApp localizedName], blockedAppId);
-        [blockedApp terminate];
-
-        // If the app doesn't terminate gracefully, force quit after a delay
-        // dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 2 * NSEC_PER_SEC),
-        //                dispatch_get_main_queue(), ^{
-        //                  if ([app isTerminated] == NO) {
-        //                    NSLog(@"Force quitting application: %@",
-        //                          [app localizedName]);
-        //                    [app forceTerminate];
-        //                  }
-        //                });
-
-        break; // Move to the next application
-      }
+      close_app([blockedAppId UTF8String], NO);
     }
+
+    sendBlockedAppsBatch();
   }
 }
 
@@ -64,10 +81,9 @@ BOOL start_blocking(const char **blocked_urls, int url_count,
                     const char *redirect_url) {
   NSLog(@"start_blocking");
   @autoreleasepool {
-    // Check if redirect_url is provided (now required)
     if (!redirect_url) {
       NSLog(@"Error: redirect_url is required");
-      return NO; // Return failure if redirect_url is not provided
+      return NO;
     }
 
     if (blockedApps == nil) {
@@ -76,7 +92,6 @@ BOOL start_blocking(const char **blocked_urls, int url_count,
       [blockedApps removeAllObjects];
     }
 
-    // Copy the URLs from C strings to NSString objects
     for (int i = 0; i < url_count; i++) {
       if (blocked_urls[i]) {
         NSString *url = [NSString stringWithUTF8String:blocked_urls[i]];
@@ -85,7 +100,6 @@ BOOL start_blocking(const char **blocked_urls, int url_count,
       }
     }
 
-    // Set the redirect URL (now required)
     vibesUrl = [NSString stringWithUTF8String:redirect_url];
     NSLog(@"Redirect URL set to: %@", vibesUrl);
     siteBlockingEnabled = YES;
@@ -100,6 +114,31 @@ void stop_blocking(void) {
   NSLog(@"Site blocking disabled");
 }
 
+BOOL close_app(const char *external_app_id, const bool send_callback) {
+  if (!external_app_id || !siteBlockingEnabled || blockedApps.count == 0) {
+    return NO;
+  }
+
+  @autoreleasepool {
+    NSString *currentAppId = [NSString stringWithUTF8String:external_app_id];
+    NSArray *runningApps = [NSRunningApplication
+        runningApplicationsWithBundleIdentifier:currentAppId];
+    NSRunningApplication *blockedApp = [runningApps firstObject];
+    if (blockedApp) {
+      NSLog(@"Terminating blocked application: %@", blockedApp);
+      [blockedApp terminate];
+      NSLog(@"Successfully terminated blocked application: %@", blockedApp);
+      addAppToBlockedBatch([blockedApp localizedName],
+                           [blockedApp bundleIdentifier]);
+      if (send_callback) {
+        sendBlockedAppsBatch();
+      }
+      return YES;
+    }
+  }
+  return NO;
+}
+
 BOOL is_blocked(const char *external_app_id) {
   if (!external_app_id || !siteBlockingEnabled || blockedApps.count == 0) {
     return NO;
@@ -112,6 +151,7 @@ BOOL is_blocked(const char *external_app_id) {
       if ([currentAppId caseInsensitiveCompare:blockedAppId] == NSOrderedSame) {
         NSLog(@"App ID %@ is blocked (exact match with %@)", currentAppId,
               blockedAppId);
+
         return YES;
       }
     }
@@ -238,4 +278,16 @@ BOOL request_automation_permission(const char *bundle_id) {
   [script executeAndReturnError:&errorInfo];
 
   return hasAutomationPermission(bundleIdStr);
+}
+
+void register_app_blocked_callback(AppBlockedCallback callback) {
+  appBlockedCallback = callback;
+
+  if (batchAppNames == nil) {
+    batchAppNames = [NSMutableArray array];
+  }
+
+  if (batchBundleIds == nil) {
+    batchBundleIds = [NSMutableArray array];
+  }
 }

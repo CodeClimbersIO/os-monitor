@@ -1,6 +1,6 @@
-use crate::event::{Platform, WindowEvent};
-use crate::MonitorError;
+use crate::event::{BlockedApp, Platform, WindowEvent};
 use crate::{bindings, event::EventCallback, Monitor};
+use crate::{BlockedAppEvent, MonitorError};
 use once_cell::sync::Lazy;
 use std::ffi::{c_char, CStr, CString};
 use std::sync::{Arc, Mutex};
@@ -56,9 +56,17 @@ fn detect_focused_window() {
             let c_url = CString::new(url_str.clone()).unwrap_or_default();
             log::info!("c_url: {:?}", c_url);
             if bindings::is_blocked(c_url.as_ptr()) {
-                log::info!("URL is blocked, redirecting to vibes page: {}", url_str);
+                log::info!("Url is blocked, redirecting to vibes page: {}", url_str);
                 let redirect_result = bindings::redirect_to_vibes_page();
                 log::info!("Redirect result: {}", redirect_result);
+            }
+        }
+        if let Some(bundle_id) = bundle_id.clone() {
+            let c_bundle_id = CString::new(bundle_id.clone()).unwrap_or_default();
+            if bindings::is_blocked(c_bundle_id.as_ptr()) {
+                log::info!("App is blocked, closing app: {:?}", bundle_id);
+                let close_result = bindings::close_app(c_bundle_id.as_ptr(), true);
+                log::info!("Close result: {}", close_result);
             }
         }
 
@@ -101,6 +109,48 @@ extern "C" fn keyboard_event_callback(_: i32) {
     log::trace!("keyboard_event_callback");
     let mut has_activity = HAS_KEYBOARD_ACTIVITY.lock().unwrap();
     *has_activity = true;
+}
+
+extern "C" fn app_blocked_callback(
+    app_names: *const *const c_char,
+    bundle_ids: *const *const c_char,
+    count: i32,
+) {
+    unsafe {
+        let monitor_guard = MONITOR.lock().unwrap();
+        if let Some(monitor) = monitor_guard.as_ref() {
+            // Create a vector to hold all blocked app events
+            let mut blocked_apps = Vec::with_capacity(count as usize);
+
+            for i in 0..count as isize {
+                let app_name_ptr = *app_names.offset(i);
+                let bundle_id_ptr = *bundle_ids.offset(i);
+
+                let app_name_str = if !app_name_ptr.is_null() {
+                    CStr::from_ptr(app_name_ptr).to_string_lossy().into_owned()
+                } else {
+                    String::from("Unknown App")
+                };
+
+                let bundle_id_str = if !bundle_id_ptr.is_null() {
+                    CStr::from_ptr(bundle_id_ptr).to_string_lossy().into_owned()
+                } else {
+                    String::from("unknown.bundle.id")
+                };
+
+                log::info!("App blocked: {} ({})", app_name_str, bundle_id_str);
+                blocked_apps.push(BlockedApp {
+                    app_name: app_name_str,
+                    bundle_id: bundle_id_str,
+                });
+            }
+
+            log::trace!("app_blocked_callback blocked_apps: {:?}", blocked_apps);
+            monitor.on_app_blocked(BlockedAppEvent {
+                blocked_apps: blocked_apps,
+            });
+        }
+    }
 }
 
 fn send_buffered_events() {
@@ -168,11 +218,8 @@ pub(crate) fn platform_start_monitoring(monitor: Arc<Monitor>) {
     }
     log::trace!("platform_start_monitoring end");
 
-    // Start observer-based window monitoring
-    // platform_start_window_observer_monitoring();
-
-    // Also keep the existing monitoring for mouse/keyboard events
     unsafe {
+        bindings::register_app_blocked_callback(app_blocked_callback);
         bindings::start_monitoring(mouse_event_callback, keyboard_event_callback);
     }
     log::trace!("bindings::start_monitoring end");

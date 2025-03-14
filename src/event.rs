@@ -59,15 +59,29 @@ pub struct WindowEvent {
     pub platform: Platform,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BlockedApp {
+    pub app_name: String,
+    pub bundle_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BlockedAppEvent {
+    pub blocked_apps: Vec<BlockedApp>,
+}
+
 pub trait EventCallback: Send + Sync {
     fn on_mouse_events(&self, has_activity: bool);
     fn on_keyboard_events(&self, has_activity: bool);
     fn on_window_event(&self, event: WindowEvent);
+    fn on_app_blocked(&self, event: BlockedAppEvent);
 }
+
 pub struct Monitor {
     mouse_callbacks: Mutex<Vec<Box<dyn Fn(bool) + Send + Sync>>>,
     keyboard_callbacks: Mutex<Vec<Box<dyn Fn(bool) + Send + Sync>>>,
     window_callbacks: Mutex<Vec<Box<dyn Fn(WindowEvent) + Send + Sync>>>,
+    app_blocked_callbacks: Mutex<Vec<Box<dyn Fn(BlockedAppEvent) + Send + Sync>>>,
 }
 
 impl Monitor {
@@ -76,6 +90,7 @@ impl Monitor {
             mouse_callbacks: Mutex::new(Vec::new()),
             keyboard_callbacks: Mutex::new(Vec::new()),
             window_callbacks: Mutex::new(Vec::new()),
+            app_blocked_callbacks: Mutex::new(Vec::new()),
         }
     }
 
@@ -89,6 +104,13 @@ impl Monitor {
 
     pub fn register_window_callback(&self, callback: Box<dyn Fn(WindowEvent) + Send + Sync>) {
         self.window_callbacks.lock().unwrap().push(callback);
+    }
+
+    pub fn register_app_blocked_callback(
+        &self,
+        callback: Box<dyn Fn(BlockedAppEvent) + Send + Sync>,
+    ) {
+        self.app_blocked_callbacks.lock().unwrap().push(callback);
     }
 }
 
@@ -110,6 +132,13 @@ impl EventCallback for Monitor {
     fn on_window_event(&self, event: WindowEvent) {
         let mut callbacks = self.window_callbacks.lock().unwrap();
         for callback in callbacks.iter_mut() {
+            callback(event.clone());
+        }
+    }
+
+    fn on_app_blocked(&self, event: BlockedAppEvent) {
+        let callbacks = self.app_blocked_callbacks.lock().unwrap();
+        for callback in callbacks.iter() {
             callback(event.clone());
         }
     }

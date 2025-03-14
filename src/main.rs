@@ -2,7 +2,8 @@ use std::sync::Arc;
 
 use os_monitor::{
     detect_changes, get_application_icon_data, has_accessibility_permissions,
-    request_accessibility_permissions, start_blocking, start_monitoring, Monitor, WindowEvent,
+    request_accessibility_permissions, start_blocking, start_monitoring, BlockedAppEvent, Monitor,
+    WindowEvent,
 };
 
 fn on_keyboard_events(has_activity: bool) {
@@ -15,6 +16,13 @@ fn on_mouse_events(has_activity: bool) {
 
 fn on_window_event(event: WindowEvent) {
     log::warn!("Window event: {:?}", event);
+}
+
+fn on_app_blocked(event: BlockedAppEvent) {
+    log::warn!("Apps blocked:");
+    for app in &event.blocked_apps {
+        log::warn!("  - {} ({})", app.app_name, app.bundle_id);
+    }
 }
 
 fn main() {
@@ -36,6 +44,7 @@ fn main() {
     monitor.register_keyboard_callback(Box::new(on_keyboard_events));
     monitor.register_mouse_callback(Box::new(on_mouse_events));
     monitor.register_window_callback(Box::new(on_window_event));
+    monitor.register_app_blocked_callback(Box::new(on_app_blocked));
 
     std::thread::spawn(move || {
         let blocked_app_ids = vec![
@@ -48,8 +57,8 @@ fn main() {
         ];
 
         // Enable site blocking
-        start_blocking(&blocked_app_ids, "https://ebb.cool/vibes");
         start_monitoring(Arc::new(monitor));
+        start_blocking(&blocked_app_ids, "https://ebb.cool/vibes");
     });
     std::thread::spawn(move || {
         // initialize_monitor(monitor_clone).expect("Failed to initialize monitor");

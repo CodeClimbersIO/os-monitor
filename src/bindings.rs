@@ -60,8 +60,12 @@ extern "C" {
     ) -> bool;
     pub fn stop_blocking();
     pub fn is_blocked(external_app_id: *const c_char) -> bool;
+    pub fn close_app(bundle_id: *const c_char, force: bool) -> bool;
     pub fn redirect_to_vibes_page() -> bool;
     pub fn request_automation_permission(bundle_id: *const c_char) -> bool;
+    pub fn register_app_blocked_callback(
+        callback: extern "C" fn(*const *const c_char, *const *const c_char, i32),
+    );
 }
 
 #[cfg(target_os = "windows")]
