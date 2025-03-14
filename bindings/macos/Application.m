@@ -43,6 +43,9 @@ BOOL isDomain(NSString *str) {
 }
 
 - (NSString *)url {
+  if (![_parentApp isSupportedBrowser]) {
+    return nil;
+  }
   AccessibilityElement *urlElement = [self findUrlElement];
   if (urlElement) {
     NSString *rawUrl = [urlElement value];
@@ -255,6 +258,10 @@ BOOL isDomain(NSString *str) {
 }
 
 - (NSString *)url {
+  if (![self isSupportedBrowser]) {
+    return nil;
+  }
+
   AppWindow *window = [self focusedWindow];
   if (!window) {
     NSLog(@"Failed to get focused window");
