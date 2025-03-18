@@ -50,4 +50,5 @@ BOOL isDomain(NSString *str);
 - (BOOL)isChromiumBrowser;
 - (BOOL)isSafari;
 - (BOOL)isArc;
+- (BOOL)isBrave;
 @end

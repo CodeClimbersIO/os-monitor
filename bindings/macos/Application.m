@@ -317,7 +317,8 @@ BOOL isDomain(NSString *str) {
 }
 
 - (BOOL)isSupportedBrowser {
-  return [self isSafari] || [self isChromiumBrowser] || [self isArc];
+  return [self isSafari] || [self isChromiumBrowser] || [self isArc] ||
+         [self isBrave];
 }
 
 - (BOOL)isChromiumBrowser {
@@ -337,6 +338,11 @@ BOOL isDomain(NSString *str) {
 
 - (BOOL)isArc {
   return [self.bundleId isEqualToString:@"company.thebrowser.Browser"];
+}
+
+- (BOOL)isBrave {
+
+  return [self.bundleId isEqualToString:@"com.brave.Browser"];
 }
 
 @end
