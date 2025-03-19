@@ -135,7 +135,7 @@ void start_monitoring(MouseEventCallback mouseCallback,
                      kCFRunLoopCommonModes);
   CGEventTapEnable(_eventTap, true);
 
-  // start_run_loop();
+  start_run_loop();
 }
 
 const char *get_app_icon_data(const char *bundle_id) {

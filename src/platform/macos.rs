@@ -120,7 +120,7 @@ extern "C" fn mouse_event_callback(_: f64, _: f64, _: i32, _: i32) {
 }
 
 extern "C" fn keyboard_event_callback(_: i32) {
-    log::trace!("keyboard_event_callback");
+    log::warn!("keyboard_event_callback");
     let mut has_activity = HAS_KEYBOARD_ACTIVITY.lock().unwrap();
     *has_activity = true;
 }
@@ -193,7 +193,7 @@ pub(crate) fn platform_detect_changes() -> Result<(), MonitorError> {
     let mut last_send = LAST_SEND.lock().unwrap();
     log::trace!("last_send: {:?}", last_send.elapsed());
 
-    if last_send.elapsed() >= Duration::from_secs(30) {
+    if last_send.elapsed() >= Duration::from_secs(15) {
         log::trace!("sending buffered events");
         send_buffered_events();
         log::trace!("sent buffered events");

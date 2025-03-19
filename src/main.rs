@@ -7,11 +7,11 @@ use os_monitor::{
 };
 
 fn on_keyboard_events(has_activity: bool) {
-    log::trace!("Keyboard event: {}", has_activity);
+    log::warn!("Keyboard event: {}", has_activity);
 }
 
 fn on_mouse_events(has_activity: bool) {
-    log::trace!("Mouse event: {}", has_activity);
+    log::warn!("Mouse event: {}", has_activity);
 }
 
 fn on_window_event(event: WindowEvent) {
@@ -47,18 +47,19 @@ fn main() {
     monitor.register_app_blocked_callback(Box::new(on_app_blocked));
 
     std::thread::spawn(move || {
+        start_monitoring(Arc::new(monitor));
+        println!("started_monitoring");
+    });
+    std::thread::spawn(move || {
         let blocked_app_ids = vec![
             "facebook.com".to_string(),
             "twitter.com".to_string(),
             "instagram.com".to_string(),
             "x.com".to_string(),
-            "com.hnc.Discord".to_string(),
-            "com.tinyspeck.slackmacgap".to_string(),
         ];
 
-        // Enable site blocking
-        start_monitoring(Arc::new(monitor));
         start_blocking(&blocked_app_ids, "https://ebb.cool/vibes");
+        println!("started_blocking");
     });
     std::thread::spawn(move || {
         // initialize_monitor(monitor_clone).expect("Failed to initialize monitor");
