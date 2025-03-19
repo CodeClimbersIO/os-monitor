@@ -55,6 +55,7 @@ fn main() {
             "facebook.com".to_string(),
             "twitter.com".to_string(),
             "instagram.com".to_string(),
+            "linkedin.com".to_string(),
             "x.com".to_string(),
         ];
 
