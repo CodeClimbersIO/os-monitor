@@ -8,6 +8,13 @@ BOOL isDomain(NSString *str) {
     return NO;
   }
 
+  // Check for localhost specifically
+  if ([str isEqualToString:@"localhost"] || [str hasPrefix:@"localhost:"] ||
+      [str hasPrefix:@"http://localhost"] ||
+      [str hasPrefix:@"https://localhost"]) {
+    return YES;
+  }
+
   NSString *pattern = @"^(?:https?:\\/\\/"
                       @")?(?:www\\.)?[a-zA-Z0-9-]+(?:\\.[a-zA-Z0-9-]+)*\\.[a-"
                       @"zA-Z]{2,}(?:\\/[^\\s]*)?(?:\\?[^\\s]*)?$";
