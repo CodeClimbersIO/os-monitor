@@ -1,7 +1,4 @@
 #import "Blocker.h"
-#import "Application.h"
-#import <ApplicationServices/ApplicationServices.h>
-#import <Cocoa/Cocoa.h>
 
 // Static variables to store state
 static BOOL siteBlockingEnabled = NO;
@@ -144,6 +141,12 @@ BOOL is_blocked(const char *external_app_id) {
     return NO;
   }
 
+  FocusedApp *frontApp = [FocusedApp frontmostApp];
+  BOOL isUrlElementFocused = [frontApp isUrlElementFocused];
+  if (isUrlElementFocused) {
+    return NO;
+  }
+
   @autoreleasepool {
     NSString *currentAppId = [NSString stringWithUTF8String:external_app_id];
     NSLog(@"currentAppId: %@", currentAppId);
@@ -183,6 +186,12 @@ BOOL redirectUsingAppleScript(NSString *browserBundleId, NSString *targetUrl) {
         [NSString stringWithFormat:@"tell application \"%@\" to set URL of "
                                    @"active tab of front window to \"%@\"",
                                    browserName, targetUrl];
+  } else if ([browserBundleId isEqualToString:@"com.brave.Browser"]) {
+    browserName = @"Brave Browser";
+    scriptText =
+        [NSString stringWithFormat:@"tell application \"%@\" to set URL of "
+                                   @"active tab of front window to \"%@\"",
+                                   browserName, targetUrl];
   } else {
     return NO; // Unsupported browser
   }
@@ -193,28 +202,75 @@ BOOL redirectUsingAppleScript(NSString *browserBundleId, NSString *targetUrl) {
 
   NSLog(@"Running AppleScript for %@: %@", browserName, scriptText);
 
+  // Create a temporary AppleScript file with the script
+  NSString *tempDir = NSTemporaryDirectory();
+  NSString *scriptPath =
+      [tempDir stringByAppendingPathComponent:@"browser_redirect.scpt"];
+
+  NSError *error = nil;
+  BOOL success = [scriptText writeToFile:scriptPath
+                              atomically:YES
+                                encoding:NSUTF8StringEncoding
+                                   error:&error];
+
+  if (!success) {
+    NSLog(@"Failed to write script file: %@", error);
+    return NO;
+  }
+
+  // Execute the script using osascript directly
+  NSTask *task = [[NSTask alloc] init];
+  [task setLaunchPath:@"/usr/bin/osascript"];
+  [task setArguments:@[ scriptPath ]];
+
+  NSPipe *pipe = [NSPipe pipe];
+  [task setStandardOutput:pipe];
+  [task setStandardError:pipe];
+
+  [task launch];
+
+  // Wait for a reasonable amount of time
+  [task waitUntilExit];
+  int status = [task terminationStatus];
+
+  // Clean up
+  [[NSFileManager defaultManager] removeItemAtPath:scriptPath error:nil];
+
+  if (status != 0) {
+    NSLog(@"osascript exited with status: %d", status);
+    NSFileHandle *fileHandle = [pipe fileHandleForReading];
+    NSData *data = [fileHandle readDataToEndOfFile];
+    NSString *output = [[NSString alloc] initWithData:data
+                                             encoding:NSUTF8StringEncoding];
+    NSLog(@"osascript output: %@", output);
+    return NO;
+  }
+
+  NSLog(@"osascript executed successfully");
+  return YES;
+}
+
+BOOL requestAutomationPermission(const char *bundle_id) {
+  if (!bundle_id)
+    return NO;
+
+  NSString *bundleIdStr = [NSString stringWithUTF8String:bundle_id];
+
+  NSString *scriptText =
+      [NSString stringWithFormat:@"tell application id \"%@\" to return name",
+                                 bundleIdStr];
   NSAppleScript *script = [[NSAppleScript alloc] initWithSource:scriptText];
+
   NSDictionary *errorInfo = nil;
+  [script executeAndReturnError:&errorInfo];
+
   NSAppleEventDescriptor *result = [script executeAndReturnError:&errorInfo];
 
   if (errorInfo) {
     NSLog(@"AppleScript error: %@", errorInfo);
     return NO;
   }
-
-  NSLog(@"AppleScript executed successfully: %@", result);
   return YES;
-}
-
-BOOL hasAutomationPermission(NSString *bundleId) {
-  NSAppleScript *testScript = [[NSAppleScript alloc]
-      initWithSource:[NSString stringWithFormat:
-                                   @"tell application id \"%@\" to return name",
-                                   bundleId]];
-  NSDictionary *errorInfo = nil;
-  [testScript executeAndReturnError:&errorInfo];
-
-  return (errorInfo == nil);
 }
 
 void commandBarRedirect() {
@@ -255,29 +311,18 @@ BOOL redirect_to_vibes_page(void) {
       return NO;
     }
 
-    commandBarRedirect();
+    requestAutomationPermission([frontApp.bundleId UTF8String]);
+
+    BOOL redirectResult = redirectUsingAppleScript(frontApp.bundleId, vibesUrl);
+    if (!redirectResult) {
+      NSLog(@"Failed to redirect using AppleScript for %@", frontApp.bundleId);
+      commandBarRedirect();
+    }
 
     NSLog(@"Successfully redirected to vibes page");
     return YES; // Return success for the main function since we've started
                 // the async process
   }
-}
-
-BOOL request_automation_permission(const char *bundle_id) {
-  if (!bundle_id)
-    return NO;
-
-  NSString *bundleIdStr = [NSString stringWithUTF8String:bundle_id];
-
-  NSString *scriptText =
-      [NSString stringWithFormat:@"tell application id \"%@\" to return name",
-                                 bundleIdStr];
-  NSAppleScript *script = [[NSAppleScript alloc] initWithSource:scriptText];
-
-  NSDictionary *errorInfo = nil;
-  [script executeAndReturnError:&errorInfo];
-
-  return hasAutomationPermission(bundleIdStr);
 }
 
 void register_app_blocked_callback(AppBlockedCallback callback) {

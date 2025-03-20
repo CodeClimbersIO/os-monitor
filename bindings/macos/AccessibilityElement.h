@@ -7,6 +7,7 @@
 
 - (instancetype)initWithAXUIElement:(AXUIElementRef)element;
 - (void)focus;
+- (BOOL)isFocused;
 - (void)printAttributesWithDepth:(int)depth maxDepth:(int)maxDepth;
 - (void)printAttributes;
 

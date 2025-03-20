@@ -23,7 +23,7 @@ BOOL isDomain(NSString *str);
                                    parentApp:(FocusedApp *)parentApp;
 - (NSString *)title;
 - (NSString *)url;
-
+- (BOOL)isUrlElementFocused;
 - (AccessibilityElement *)findUrlElement;
 - (AccessibilityElement *)findUrlElementInElement:
                               (AccessibilityElement *)element
@@ -44,6 +44,7 @@ BOOL isDomain(NSString *str);
 - (NSString *)appName;
 - (NSString *)bundleId;
 - (NSString *)url;
+- (BOOL)isUrlElementFocused;
 - (AppWindow *)focusedWindow;
 - (WindowTitle *)windowTitleStructWithWindow;
 - (BOOL)isSupportedBrowser;

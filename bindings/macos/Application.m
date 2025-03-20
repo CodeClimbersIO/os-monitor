@@ -57,9 +57,25 @@ BOOL isDomain(NSString *str) {
   if (urlElement) {
     NSString *rawUrl = [urlElement value];
     NSLog(@"rawUrl: %@", rawUrl);
+    [urlElement printAttributesWithDepth:1 maxDepth:1];
+
+    if ([rawUrl hasPrefix:@"https://"]) {
+      return [rawUrl substringFromIndex:8]; // "https://".length == 8
+    } else if ([rawUrl hasPrefix:@"http://"]) {
+      return [rawUrl substringFromIndex:7]; // "http://".length == 7
+    }
+
     return rawUrl;
   }
   return nil;
+}
+
+- (BOOL)isUrlElementFocused {
+  AccessibilityElement *urlElement = [self findUrlElement];
+  if (urlElement) {
+    return [urlElement isFocused];
+  }
+  return NO;
 }
 
 /**
@@ -275,6 +291,18 @@ BOOL isDomain(NSString *str) {
     return nil;
   }
   return [window url];
+}
+
+- (BOOL)isUrlElementFocused {
+  if (![self isSupportedBrowser]) {
+    return NO;
+  }
+  AppWindow *window = [self focusedWindow];
+  if (!window) {
+    NSLog(@"Failed to get focused window");
+    return NO;
+  }
+  return [window isUrlElementFocused];
 }
 
 - (AppWindow *)focusedWindow {

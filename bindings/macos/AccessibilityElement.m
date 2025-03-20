@@ -22,6 +22,16 @@
                                kCFBooleanTrue);
 }
 
+- (BOOL)isFocused {
+  CFBooleanRef focusedRef;
+  if (AXUIElementCopyAttributeValue(_axUIElement, kAXFocusedAttribute,
+                                    (CFTypeRef *)&focusedRef) ==
+      kAXErrorSuccess) {
+    return focusedRef == kCFBooleanTrue;
+  }
+  return NO;
+}
+
 - (void)printAttributesWithDepth:(int)depth maxDepth:(int)maxDepth {
   if (!_axUIElement)
     return;

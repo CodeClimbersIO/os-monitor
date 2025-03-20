@@ -18,8 +18,6 @@ static HAS_KEYBOARD_ACTIVITY: Mutex<bool> = Mutex::new(false);
 
 static LAST_SEND: Lazy<Mutex<Instant>> = Lazy::new(|| Mutex::new(Instant::now()));
 
-static LAST_ENTER_PRESS: Lazy<Mutex<Option<Instant>>> = Lazy::new(|| Mutex::new(None));
-
 static FOCUSED_WINDOW: Mutex<WindowTitle> = Mutex::new(WindowTitle {
     app_name: String::new(),
     title: String::new(),
@@ -52,45 +50,29 @@ fn detect_focused_window() {
         log::trace!("  detect_focused_window bundle_id: {:?}", bundle_id);
         log::trace!("  detect_focused_window url: {:?}", url);
 
-        // Check if URL is blocked and redirect if needed
         if let Some(url_str) = &url {
             log::info!("is blocked? {}", url_str);
 
-            // Check if enter was pressed in the last 5 seconds
-            let enter_pressed_recently = {
-                let last_press = LAST_ENTER_PRESS.lock().unwrap();
-                last_press
-                    .map(|time| time.elapsed() < Duration::from_secs(5))
-                    .unwrap_or(false)
-            };
+            let c_url = CString::new(url_str.clone()).unwrap_or_default();
+            log::info!("c_url: {:?}", c_url);
+            if bindings::is_blocked(c_url.as_ptr()) {
+                log::info!("Url is blocked, redirecting to vibes page: {}", url_str);
+                let redirect_result = bindings::redirect_to_vibes_page();
 
-            if enter_pressed_recently {
-                let c_url = CString::new(url_str.clone()).unwrap_or_default();
-                log::info!("c_url: {:?}", c_url);
-                if bindings::is_blocked(c_url.as_ptr()) {
-                    log::info!("Url is blocked, redirecting to vibes page: {}", url_str);
-                    let redirect_result = bindings::redirect_to_vibes_page();
+                let blocked_app = BlockedApp {
+                    app_name: app_name.to_string(),
+                    app_external_id: url_str.to_string(),
+                    is_site: true,
+                };
 
-                    let blocked_app = BlockedApp {
-                        app_name: app_name.to_string(),
-                        app_external_id: url_str.to_string(),
-                        is_site: true,
-                    };
-
-                    let monitor_guard = MONITOR.lock().unwrap();
-                    if let Some(monitor) = monitor_guard.as_ref() {
-                        monitor.on_app_blocked(BlockedAppEvent {
-                            blocked_apps: vec![blocked_app],
-                        });
-                    }
-
-                    log::info!("Redirect result: {}", redirect_result);
-
-                    if redirect_result {
-                        let mut last_press = LAST_ENTER_PRESS.lock().unwrap();
-                        *last_press = None;
-                    }
+                let monitor_guard = MONITOR.lock().unwrap();
+                if let Some(monitor) = monitor_guard.as_ref() {
+                    monitor.on_app_blocked(BlockedAppEvent {
+                        blocked_apps: vec![blocked_app],
+                    });
                 }
+
+                log::info!("Redirect result: {}", redirect_result);
             }
         }
         if let Some(bundle_id) = bundle_id.clone() {
@@ -136,15 +118,9 @@ extern "C" fn mouse_event_callback(_: f64, _: f64, _: i32, _: i32) {
     *has_activity = true;
 }
 
-extern "C" fn keyboard_event_callback(key_code: i32) {
+extern "C" fn keyboard_event_callback(_: i32) {
     let mut has_activity = HAS_KEYBOARD_ACTIVITY.lock().unwrap();
     *has_activity = true;
-
-    // Check if Enter key is pressed (key code 36 on macOS)
-    if key_code == 36 {
-        let mut last_press = LAST_ENTER_PRESS.lock().unwrap();
-        *last_press = Some(Instant::now());
-    }
 }
 
 extern "C" fn app_blocked_callback(
