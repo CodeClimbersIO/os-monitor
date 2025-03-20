@@ -149,9 +149,10 @@ BOOL is_blocked(const char *external_app_id) {
 
   @autoreleasepool {
     NSString *currentAppId = [NSString stringWithUTF8String:external_app_id];
-    NSLog(@"currentAppId: %@", currentAppId);
+    NSString *cleanedAppId = [currentAppId componentsSeparatedByString:@"/"][0];
+    NSLog(@"cleanedAppId: %@", cleanedAppId);
     for (NSString *blockedAppId in blockedApps) {
-      if ([currentAppId caseInsensitiveCompare:blockedAppId] == NSOrderedSame) {
+      if ([cleanedAppId caseInsensitiveCompare:blockedAppId] == NSOrderedSame) {
         NSLog(@"App ID %@ is blocked (exact match with %@)", currentAppId,
               blockedAppId);
 
@@ -226,7 +227,6 @@ BOOL redirectUsingAppleScript(NSString *browserBundleId, NSString *targetUrl) {
   NSPipe *pipe = [NSPipe pipe];
   [task setStandardOutput:pipe];
   [task setStandardError:pipe];
-
   [task launch];
 
   // Wait for a reasonable amount of time
