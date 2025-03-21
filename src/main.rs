@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use os_monitor::{
     detect_changes, get_application_icon_data, has_accessibility_permissions,
-    request_accessibility_permissions, start_blocking, start_monitoring, BlockedAppEvent, Monitor,
-    WindowEvent,
+    request_accessibility_permissions, start_blocking, start_monitoring, BlockableItem,
+    BlockedAppEvent, Monitor, WindowEvent,
 };
 
 fn on_keyboard_events(has_activity: bool) {
@@ -40,7 +40,6 @@ fn main() {
     log::trace!("icon_data: {}", icon_data.unwrap().len());
 
     let monitor = Monitor::new();
-
     monitor.register_keyboard_callback(Box::new(on_keyboard_events));
     monitor.register_mouse_callback(Box::new(on_mouse_events));
     monitor.register_window_callback(Box::new(on_window_event));
@@ -51,15 +50,17 @@ fn main() {
         println!("started_monitoring");
     });
     std::thread::spawn(move || {
-        let blocked_app_ids = vec![
-            "facebook.com".to_string(),
-            "twitter.com".to_string(),
-            "instagram.com".to_string(),
-            "linkedin.com".to_string(),
-            "x.com".to_string(),
+        let blocked_apps = vec![
+            BlockableItem::new("facebook.com".to_string(), true),
+            BlockableItem::new("twitter.com".to_string(), true),
+            BlockableItem::new("instagram.com".to_string(), true),
+            BlockableItem::new("linkedin.com".to_string(), true),
+            BlockableItem::new("x.com".to_string(), true),
+            BlockableItem::new("com.todesktop.230313mzl4w4u92".to_string(), false),
+            BlockableItem::new("com.google.Chrome".to_string(), false),
         ];
 
-        start_blocking(&blocked_app_ids, "https://ebb.cool/vibes");
+        start_blocking(&blocked_apps, "https://ebb.cool/vibes", false);
         println!("started_blocking");
     });
     std::thread::spawn(move || {

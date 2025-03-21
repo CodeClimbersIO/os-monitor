@@ -57,6 +57,7 @@ extern "C" {
         blocked_urls: *const *const c_char,
         url_count: i32,
         redirect_url: *const c_char,
+        blocklist_mode: bool,
     ) -> bool;
     pub fn stop_blocking();
     pub fn is_blocked(external_app_id: *const c_char) -> bool;

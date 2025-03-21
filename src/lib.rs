@@ -1,8 +1,10 @@
 mod bindings;
+mod blocking;
 mod error;
 mod event;
 mod platform;
 
+pub use blocking::BlockableItem;
 pub use error::MonitorError;
 pub use event::{
     BlockedApp, BlockedAppEvent, EventCallback, KeyboardEvent, Monitor, MouseEvent, MouseEventType,

@@ -1,6 +1,6 @@
 use crate::event::{BlockedApp, Platform, WindowEvent};
 use crate::{bindings, event::EventCallback, Monitor};
-use crate::{BlockedAppEvent, MonitorError};
+use crate::{BlockableItem, BlockedAppEvent, MonitorError};
 use once_cell::sync::Lazy;
 use std::ffi::{c_char, CStr, CString};
 use std::sync::{Arc, Mutex};
@@ -238,11 +238,15 @@ pub(crate) fn platform_start_monitoring(monitor: Arc<Monitor>) {
     log::trace!("bindings::start_monitoring end");
 }
 
-pub(crate) fn platform_start_blocking(urls: &[String], redirect_url: &str) -> bool {
+pub(crate) fn platform_start_blocking(
+    blocked_apps: &[BlockableItem],
+    redirect_url: &str,
+    blocklist_mode: bool,
+) -> bool {
     log::trace!("platform_start_blocking start");
-    let c_urls: Vec<CString> = urls
+    let c_urls: Vec<CString> = blocked_apps
         .iter()
-        .map(|url| CString::new(url.as_str()).unwrap())
+        .map(|app| CString::new(app.app_external_id.as_str()).unwrap())
         .collect();
 
     let c_urls_ptrs: Vec<*const c_char> = c_urls.iter().map(|url| url.as_ptr()).collect();
@@ -255,6 +259,7 @@ pub(crate) fn platform_start_blocking(urls: &[String], redirect_url: &str) -> bo
             c_urls_ptrs.as_ptr(),
             c_urls_ptrs.len() as i32,
             c_redirect_url.as_ptr(),
+            blocklist_mode,
         )
     }
 }

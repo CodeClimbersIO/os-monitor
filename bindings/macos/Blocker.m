@@ -5,8 +5,8 @@ static BOOL siteBlockingEnabled = NO;
 static NSMutableArray<NSString *> *blockedApps = nil;
 static NSString *vibesUrl = nil;
 static AppBlockedCallback appBlockedCallback = NULL;
+static BOOL isBlocklistMode = YES;
 
-// Arrays to store blocked app information
 static NSMutableArray<NSString *> *batchAppNames = nil;
 static NSMutableArray<NSString *> *batchBundleIds = nil;
 
@@ -29,7 +29,7 @@ void simulateKeyPress(CGKeyCode keyCode, CGEventFlags flags) {
   CFRelease(keyUp);
 }
 
-void sendBlockedAppsBatch() {
+void send_blocked_apps_batch() {
   if (appBlockedCallback != NULL && batchAppNames.count > 0) {
     const char **appNamesCArray =
         (const char **)malloc(batchAppNames.count * sizeof(char *));
@@ -51,7 +51,7 @@ void sendBlockedAppsBatch() {
   }
 }
 
-void addAppToBlockedBatch(NSString *appName, NSString *bundleId) {
+void add_app_to_blocked_batch(NSString *appName, NSString *bundleId) {
   if (batchAppNames == nil) {
     batchAppNames = [NSMutableArray array];
   }
@@ -64,19 +64,45 @@ void addAppToBlockedBatch(NSString *appName, NSString *bundleId) {
   [batchBundleIds addObject:bundleId];
 }
 
-void closeBlockedApplications(void) {
+NSArray *get_running_applications(void) {
   @autoreleasepool {
-    for (NSString *blockedAppId in blockedApps) {
-      close_app([blockedAppId UTF8String], NO);
+    NSArray *runningApps = [[NSWorkspace sharedWorkspace] runningApplications];
+    NSMutableArray *bundleIds = [NSMutableArray array];
+
+    for (NSRunningApplication *app in runningApps) {
+      if (app.bundleIdentifier) {
+        [bundleIds addObject:app.bundleIdentifier];
+      }
+    }
+    return [bundleIds copy];
+  }
+}
+
+void close_blocked_apps(void) {
+  @autoreleasepool {
+
+    NSArray *bundleIds = get_running_applications();
+    if (isBlocklistMode) {
+      for (NSString *blockedAppId in blockedApps) {
+        close_app([blockedAppId UTF8String], NO);
+      }
+
+    } else {
+      for (NSString *runningBundleId in bundleIds) {
+        if (![blockedApps containsObject:runningBundleId]) {
+          close_app([runningBundleId UTF8String], NO);
+        }
+      }
     }
 
-    sendBlockedAppsBatch();
+    send_blocked_apps_batch();
   }
 }
 
 BOOL start_blocking(const char **blocked_urls, int url_count,
-                    const char *redirect_url) {
-  NSLog(@"start_blocking");
+                    const char *redirect_url, BOOL blocklist_mode) {
+  NSLog(@"start_blocking with mode: %@",
+        blocklist_mode ? @"Blocklist" : @"Allowlist");
   @autoreleasepool {
     if (!redirect_url) {
       NSLog(@"Error: redirect_url is required");
@@ -93,15 +119,17 @@ BOOL start_blocking(const char **blocked_urls, int url_count,
       if (blocked_urls[i]) {
         NSString *url = [NSString stringWithUTF8String:blocked_urls[i]];
         [blockedApps addObject:url];
-        NSLog(@"Blocking URL: %@", url);
+        NSLog(@"%@ URL: %@", blocklist_mode ? @"Blocking" : @"Allowing", url);
       }
     }
 
+    isBlocklistMode = blocklist_mode;
     vibesUrl = [NSString stringWithUTF8String:redirect_url];
     NSLog(@"Redirect URL set to: %@", vibesUrl);
     siteBlockingEnabled = YES;
-    closeBlockedApplications();
-    NSLog(@"Site blocking enabled");
+    close_blocked_apps();
+    NSLog(@"Site blocking enabled with mode: %@",
+          blocklist_mode ? @"Blocklist" : @"Allowlist");
     return YES;
   }
 }
@@ -122,13 +150,21 @@ BOOL close_app(const char *external_app_id, const bool send_callback) {
         runningApplicationsWithBundleIdentifier:currentAppId];
     NSRunningApplication *blockedApp = [runningApps firstObject];
     if (blockedApp) {
+      if ((blockedApp.activationPolicy !=
+           NSApplicationActivationPolicyRegular)) {
+        return NO;
+      }
       NSLog(@"Terminating blocked application: %@", blockedApp);
       [blockedApp terminate];
       NSLog(@"Successfully terminated blocked application: %@", blockedApp);
-      addAppToBlockedBatch([blockedApp localizedName],
-                           [blockedApp bundleIdentifier]);
-      if (send_callback) {
-        sendBlockedAppsBatch();
+
+      NSString *appName = blockedApp.localizedName;
+      NSString *bundleId = blockedApp.bundleIdentifier;
+      if (appName && bundleId) {
+        add_app_to_blocked_batch(appName, bundleId);
+        if (send_callback) {
+          send_blocked_apps_batch();
+        }
       }
       return YES;
     }
@@ -151,16 +187,24 @@ BOOL is_blocked(const char *external_app_id) {
     NSString *currentAppId = [NSString stringWithUTF8String:external_app_id];
     NSString *cleanedAppId = [currentAppId componentsSeparatedByString:@"/"][0];
     NSLog(@"cleanedAppId: %@", cleanedAppId);
-    for (NSString *blockedAppId in blockedApps) {
-      if ([cleanedAppId caseInsensitiveCompare:blockedAppId] == NSOrderedSame) {
-        NSLog(@"App ID %@ is blocked (exact match with %@)", currentAppId,
-              blockedAppId);
 
-        return YES;
+    BOOL appInList = NO;
+    for (NSString *appId in blockedApps) {
+      if ([cleanedAppId caseInsensitiveCompare:appId] == NSOrderedSame) {
+        appInList = YES;
+        break;
       }
     }
 
-    return NO;
+    BOOL shouldBlock = isBlocklistMode ? appInList : !appInList;
+
+    if (shouldBlock) {
+      NSLog(@"App ID %@ is %@", currentAppId,
+            isBlocklistMode ? @"blocked (in blocklist)"
+                            : @"blocked (not in allowlist)");
+    }
+
+    return shouldBlock;
   }
 }
 
@@ -203,7 +247,6 @@ BOOL redirectUsingAppleScript(NSString *browserBundleId, NSString *targetUrl) {
 
   NSLog(@"Running AppleScript for %@: %@", browserName, scriptText);
 
-  // Create a temporary AppleScript file with the script
   NSString *tempDir = NSTemporaryDirectory();
   NSString *scriptPath =
       [tempDir stringByAppendingPathComponent:@"browser_redirect.scpt"];
@@ -219,7 +262,6 @@ BOOL redirectUsingAppleScript(NSString *browserBundleId, NSString *targetUrl) {
     return NO;
   }
 
-  // Execute the script using osascript directly
   NSTask *task = [[NSTask alloc] init];
   [task setLaunchPath:@"/usr/bin/osascript"];
   [task setArguments:@[ scriptPath ]];
@@ -229,11 +271,9 @@ BOOL redirectUsingAppleScript(NSString *browserBundleId, NSString *targetUrl) {
   [task setStandardError:pipe];
   [task launch];
 
-  // Wait for a reasonable amount of time
   [task waitUntilExit];
   int status = [task terminationStatus];
 
-  // Clean up
   [[NSFileManager defaultManager] removeItemAtPath:scriptPath error:nil];
 
   if (status != 0) {
@@ -276,30 +316,28 @@ BOOL requestAutomationPermission(const char *bundle_id) {
 void commandBarRedirect() {
 
   NSLog(@"using command bar redirect");
-  // Fallback: try key sequence
   // Press Cmd+L to focus address bar
   simulateKeyPress(37, kCGEventFlagMaskCommand); // Cmd+L
-  usleep(100000);                                // 100ms delay
+  usleep(100000);
 
   // Use clipboard to set URL
   NSPasteboard *pasteboard = [NSPasteboard generalPasteboard];
   [pasteboard clearContents];
   [pasteboard writeObjects:@[ vibesUrl ]];
-  usleep(50000); // 50ms delay
+  usleep(50000);
 
   // Press Cmd+V to paste
   simulateKeyPress(9, kCGEventFlagMaskCommand); // Cmd+V
-  usleep(100000);                               // 100ms delay
+  usleep(100000);
 
   // Press Enter
-  simulateKeyPress(36, 0); // Return key
+  simulateKeyPress(36, 0);
 }
 
 BOOL redirect_to_vibes_page(void) {
   @autoreleasepool {
     NSLog(@"Redirecting to vibes page");
 
-    // Use FocusedApp to get the frontmost application
     FocusedApp *frontApp = [FocusedApp frontmostApp];
     if (!frontApp) {
       NSLog(@"Failed to get frontmost application");
@@ -320,8 +358,7 @@ BOOL redirect_to_vibes_page(void) {
     }
 
     NSLog(@"Successfully redirected to vibes page");
-    return YES; // Return success for the main function since we've started
-                // the async process
+    return YES;
   }
 }
 

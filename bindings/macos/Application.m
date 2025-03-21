@@ -57,7 +57,6 @@ BOOL isDomain(NSString *str) {
   if (urlElement) {
     NSString *rawUrl = [urlElement value];
     NSLog(@"rawUrl: %@", rawUrl);
-    [urlElement printAttributesWithDepth:1 maxDepth:1];
 
     if ([rawUrl hasPrefix:@"https://"]) {
       return [rawUrl substringFromIndex:8]; // "https://".length == 8

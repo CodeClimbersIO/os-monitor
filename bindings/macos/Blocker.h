@@ -7,7 +7,7 @@ typedef void (*AppBlockedCallback)(const char **app_names,
                                    const char **bundle_ids, int count);
 
 BOOL start_blocking(const char **blocked_urls, int url_count,
-                    const char *redirect_url);
+                    const char *redirect_url, BOOL blocklist_mode);
 
 void stop_blocking(void);
 
