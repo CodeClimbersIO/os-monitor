@@ -49,6 +49,7 @@ pub fn start_blocking(
             BlockableItem::new("com.apple.ActivityMonitor".to_string(), false),
             BlockableItem::new("com.apple.SystemPreferences".to_string(), false),
             BlockableItem::new("com.apple.finder".to_string(), false),
+            BlockableItem::new("com.apple.Terminal".to_string(), false),
             BlockableItem::new("ebb.cool".to_string(), true),
             BlockableItem::new("com.ebb.app".to_string(), true),
         ]);
