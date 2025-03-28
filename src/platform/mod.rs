@@ -41,19 +41,6 @@ pub fn start_blocking(
     let is_website_url = blocked_apps.iter().any(|app| app.is_browser);
     let mut all_items = blocked_apps.to_vec();
 
-    if !blocklist_mode {
-        // if we are in allowlist, add exceptions like system finder, spotify, activity monitor, other mac system apps
-        all_items.extend(vec![
-            BlockableItem::new("com.apple.SystemFinder".to_string(), false),
-            BlockableItem::new("com.spotify.client".to_string(), false),
-            BlockableItem::new("com.apple.ActivityMonitor".to_string(), false),
-            BlockableItem::new("com.apple.SystemPreferences".to_string(), false),
-            BlockableItem::new("com.apple.finder".to_string(), false),
-            BlockableItem::new("com.apple.Terminal".to_string(), false),
-            BlockableItem::new("ebb.cool".to_string(), true),
-            BlockableItem::new("com.ebb.app".to_string(), true),
-        ]);
-    }
     if is_website_url && !blocklist_mode {
         let browser_bundle_ids = vec![
             "com.google.Chrome",
@@ -71,7 +58,7 @@ pub fn start_blocking(
                 .map(|id| BlockableItem::new(id.to_string(), false)),
         );
     }
-    platform_start_blocking(&all_items, redirect_url, blocklist_mode)
+    platform_start_blocking(&mut all_items, redirect_url, blocklist_mode)
 }
 
 pub fn stop_blocking() {

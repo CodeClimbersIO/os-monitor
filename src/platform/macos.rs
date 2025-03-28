@@ -239,10 +239,26 @@ pub(crate) fn platform_start_monitoring(monitor: Arc<Monitor>) {
 }
 
 pub(crate) fn platform_start_blocking(
-    blocked_apps: &[BlockableItem],
+    blocked_apps: &mut Vec<BlockableItem>,
     redirect_url: &str,
     blocklist_mode: bool,
 ) -> bool {
+    if !blocklist_mode {
+        // if we are in allowlist, add exceptions like system finder, spotify, activity monitor, other mac system apps
+        blocked_apps.extend(vec![
+            BlockableItem::new("com.apple.SystemFinder".to_string(), false),
+            BlockableItem::new("com.spotify.client".to_string(), false),
+            BlockableItem::new("com.apple.ActivityMonitor".to_string(), false),
+            BlockableItem::new("com.apple.SystemPreferences".to_string(), false),
+            BlockableItem::new("com.apple.finder".to_string(), false),
+            BlockableItem::new("com.apple.Terminal".to_string(), false),
+            BlockableItem::new("com.apple.Preview".to_string(), false),
+            BlockableItem::new("com.apple.Music".to_string(), false),
+            BlockableItem::new("com.nordvpn.macos".to_string(), false),
+            BlockableItem::new("ebb.cool".to_string(), true),
+            BlockableItem::new("com.ebb.app".to_string(), true),
+        ]);
+    }
     log::trace!("platform_start_blocking start");
     let c_urls: Vec<CString> = blocked_apps
         .iter()
