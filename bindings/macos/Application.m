@@ -4,6 +4,17 @@
 #import <ApplicationServices/ApplicationServices.h>
 
 BOOL isDomain(NSString *str) {
+  if (![str isKindOfClass:[NSString class]]) {
+    return NO;
+  }
+
+  // Check for localhost specifically
+  if ([str isEqualToString:@"localhost"] || [str hasPrefix:@"localhost:"] ||
+      [str hasPrefix:@"http://localhost"] ||
+      [str hasPrefix:@"https://localhost"]) {
+    return YES;
+  }
+
   NSString *pattern = @"^(?:https?:\\/\\/"
                       @")?(?:www\\.)?[a-zA-Z0-9-]+(?:\\.[a-zA-Z0-9-]+)*\\.[a-"
                       @"zA-Z]{2,}(?:\\/[^\\s]*)?(?:\\?[^\\s]*)?$";
@@ -39,13 +50,31 @@ BOOL isDomain(NSString *str) {
 }
 
 - (NSString *)url {
+  if (![_parentApp isSupportedBrowser]) {
+    return nil;
+  }
   AccessibilityElement *urlElement = [self findUrlElement];
   if (urlElement) {
     NSString *rawUrl = [urlElement value];
     NSLog(@"rawUrl: %@", rawUrl);
+
+    if ([rawUrl hasPrefix:@"https://"]) {
+      return [rawUrl substringFromIndex:8]; // "https://".length == 8
+    } else if ([rawUrl hasPrefix:@"http://"]) {
+      return [rawUrl substringFromIndex:7]; // "http://".length == 7
+    }
+
     return rawUrl;
   }
   return nil;
+}
+
+- (BOOL)isUrlElementFocused {
+  AccessibilityElement *urlElement = [self findUrlElement];
+  if (urlElement) {
+    return [urlElement isFocused];
+  }
+  return NO;
 }
 
 /**
@@ -71,7 +100,6 @@ BOOL isDomain(NSString *str) {
     return nil;
 
   NSString *role = [element role];
-
   if ([role isEqualToString:NSAccessibilityStaticTextRole] ||
       [role isEqualToString:NSAccessibilityTextFieldRole]) {
     NSString *value = [element value];
@@ -252,12 +280,28 @@ BOOL isDomain(NSString *str) {
 }
 
 - (NSString *)url {
+  if (![self isSupportedBrowser]) {
+    return nil;
+  }
+
   AppWindow *window = [self focusedWindow];
   if (!window) {
     NSLog(@"Failed to get focused window");
     return nil;
   }
   return [window url];
+}
+
+- (BOOL)isUrlElementFocused {
+  if (![self isSupportedBrowser]) {
+    return NO;
+  }
+  AppWindow *window = [self focusedWindow];
+  if (!window) {
+    NSLog(@"Failed to get focused window");
+    return NO;
+  }
+  return [window isUrlElementFocused];
 }
 
 - (AppWindow *)focusedWindow {
@@ -307,7 +351,8 @@ BOOL isDomain(NSString *str) {
 }
 
 - (BOOL)isSupportedBrowser {
-  return [self isSafari] || [self isChromiumBrowser] || [self isArc];
+  return [self isSafari] || [self isChromiumBrowser] || [self isArc] ||
+         [self isBrave];
 }
 
 - (BOOL)isChromiumBrowser {
@@ -329,16 +374,26 @@ BOOL isDomain(NSString *str) {
   return [self.bundleId isEqualToString:@"company.thebrowser.Browser"];
 }
 
+- (BOOL)isBrave {
+
+  return [self.bundleId isEqualToString:@"com.brave.Browser"];
+}
+
 @end
 
 // Modified version of detect_focused_window to use our new classes
 WindowTitle *detect_focused_window(void) {
-  FocusedApp *app = [FocusedApp frontmostApp];
-  if (!app) {
-    NSLog(@"Failed to get frontmost application");
-    return nil;
+  @try {
+    FocusedApp *app = [FocusedApp frontmostApp];
+    if (!app) {
+      NSLog(@"Failed to get frontmost application");
+      return nil;
+    }
+    return [app windowTitleStructWithWindow];
+  } @catch (NSException *exception) {
+    NSLog(@"Exception: %@", exception);
+    @throw exception;
   }
-  return [app windowTitleStructWithWindow];
 }
 
 // Export a C function to get the frontmost app for use in Blocker.m

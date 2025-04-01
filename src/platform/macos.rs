@@ -1,6 +1,6 @@
-use crate::event::{Platform, WindowEvent};
-use crate::MonitorError;
+use crate::event::{BlockedApp, Platform, WindowEvent};
 use crate::{bindings, event::EventCallback, Monitor};
+use crate::{BlockableItem, BlockedAppEvent, MonitorError};
 use once_cell::sync::Lazy;
 use std::ffi::{c_char, CStr, CString};
 use std::sync::{Arc, Mutex};
@@ -50,15 +50,37 @@ fn detect_focused_window() {
         log::trace!("  detect_focused_window bundle_id: {:?}", bundle_id);
         log::trace!("  detect_focused_window url: {:?}", url);
 
-        // Check if URL is blocked and redirect if needed
         if let Some(url_str) = &url {
             log::info!("is blocked? {}", url_str);
+
             let c_url = CString::new(url_str.clone()).unwrap_or_default();
             log::info!("c_url: {:?}", c_url);
             if bindings::is_blocked(c_url.as_ptr()) {
-                log::info!("URL is blocked, redirecting to vibes page: {}", url_str);
+                log::info!("Url is blocked, redirecting to vibes page: {}", url_str);
                 let redirect_result = bindings::redirect_to_vibes_page();
+
+                let blocked_app = BlockedApp {
+                    app_name: app_name.to_string(),
+                    app_external_id: url_str.to_string(),
+                    is_site: true,
+                };
+
+                let monitor_guard = MONITOR.lock().unwrap();
+                if let Some(monitor) = monitor_guard.as_ref() {
+                    monitor.on_app_blocked(BlockedAppEvent {
+                        blocked_apps: vec![blocked_app],
+                    });
+                }
+
                 log::info!("Redirect result: {}", redirect_result);
+            }
+        }
+        if let Some(bundle_id) = bundle_id.clone() {
+            let c_bundle_id = CString::new(bundle_id.clone()).unwrap_or_default();
+            if bindings::is_blocked(c_bundle_id.as_ptr()) {
+                log::info!("App is blocked, closing app: {:?}", bundle_id);
+                let close_result = bindings::close_app(c_bundle_id.as_ptr(), true);
+                log::info!("Close result: {}", close_result);
             }
         }
 
@@ -92,15 +114,56 @@ fn detect_focused_window() {
 }
 
 extern "C" fn mouse_event_callback(_: f64, _: f64, _: i32, _: i32) {
-    // Store event in vector
     let mut has_activity = HAS_MOUSE_ACTIVITY.lock().unwrap();
     *has_activity = true;
 }
 
 extern "C" fn keyboard_event_callback(_: i32) {
-    log::trace!("keyboard_event_callback");
     let mut has_activity = HAS_KEYBOARD_ACTIVITY.lock().unwrap();
     *has_activity = true;
+}
+
+extern "C" fn app_blocked_callback(
+    app_names: *const *const c_char,
+    bundle_ids: *const *const c_char,
+    count: i32,
+) {
+    unsafe {
+        let monitor_guard = MONITOR.lock().unwrap();
+        if let Some(monitor) = monitor_guard.as_ref() {
+            // Create a vector to hold all blocked app events
+            let mut blocked_apps = Vec::with_capacity(count as usize);
+
+            for i in 0..count as isize {
+                let app_name_ptr = *app_names.offset(i);
+                let bundle_id_ptr = *bundle_ids.offset(i);
+
+                let app_name_str = if !app_name_ptr.is_null() {
+                    CStr::from_ptr(app_name_ptr).to_string_lossy().into_owned()
+                } else {
+                    String::from("Unknown App")
+                };
+
+                let bundle_id_str = if !bundle_id_ptr.is_null() {
+                    CStr::from_ptr(bundle_id_ptr).to_string_lossy().into_owned()
+                } else {
+                    String::from("unknown.bundle.id")
+                };
+
+                log::info!("App blocked: {} ({})", app_name_str, bundle_id_str);
+                blocked_apps.push(BlockedApp {
+                    app_name: app_name_str,
+                    app_external_id: bundle_id_str,
+                    is_site: false,
+                });
+            }
+
+            log::trace!("app_blocked_callback blocked_apps: {:?}", blocked_apps);
+            monitor.on_app_blocked(BlockedAppEvent {
+                blocked_apps: blocked_apps,
+            });
+        }
+    }
 }
 
 fn send_buffered_events() {
@@ -168,21 +231,38 @@ pub(crate) fn platform_start_monitoring(monitor: Arc<Monitor>) {
     }
     log::trace!("platform_start_monitoring end");
 
-    // Start observer-based window monitoring
-    // platform_start_window_observer_monitoring();
-
-    // Also keep the existing monitoring for mouse/keyboard events
     unsafe {
+        bindings::register_app_blocked_callback(app_blocked_callback);
         bindings::start_monitoring(mouse_event_callback, keyboard_event_callback);
     }
     log::trace!("bindings::start_monitoring end");
 }
 
-pub(crate) fn platform_start_blocking(urls: &[String], redirect_url: &str) -> bool {
+pub(crate) fn platform_start_blocking(
+    blocked_apps: &mut Vec<BlockableItem>,
+    redirect_url: &str,
+    blocklist_mode: bool,
+) -> bool {
+    if !blocklist_mode {
+        // if we are in allowlist, add exceptions like system finder, spotify, activity monitor, other mac system apps
+        blocked_apps.extend(vec![
+            BlockableItem::new("com.apple.SystemFinder".to_string(), false),
+            BlockableItem::new("com.spotify.client".to_string(), false),
+            BlockableItem::new("com.apple.ActivityMonitor".to_string(), false),
+            BlockableItem::new("com.apple.SystemPreferences".to_string(), false),
+            BlockableItem::new("com.apple.finder".to_string(), false),
+            BlockableItem::new("com.apple.Terminal".to_string(), false),
+            BlockableItem::new("com.apple.Preview".to_string(), false),
+            BlockableItem::new("com.apple.Music".to_string(), false),
+            BlockableItem::new("com.nordvpn.macos".to_string(), false),
+            BlockableItem::new("ebb.cool".to_string(), true),
+            BlockableItem::new("com.ebb.app".to_string(), true),
+        ]);
+    }
     log::trace!("platform_start_blocking start");
-    let c_urls: Vec<CString> = urls
+    let c_urls: Vec<CString> = blocked_apps
         .iter()
-        .map(|url| CString::new(url.as_str()).unwrap())
+        .map(|app| CString::new(app.app_external_id.as_str()).unwrap())
         .collect();
 
     let c_urls_ptrs: Vec<*const c_char> = c_urls.iter().map(|url| url.as_ptr()).collect();
@@ -195,6 +275,7 @@ pub(crate) fn platform_start_blocking(urls: &[String], redirect_url: &str) -> bo
             c_urls_ptrs.as_ptr(),
             c_urls_ptrs.len() as i32,
             c_redirect_url.as_ptr(),
+            blocklist_mode,
         )
     }
 }

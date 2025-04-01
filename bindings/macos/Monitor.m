@@ -101,6 +101,7 @@ void start_monitoring(MouseEventCallback mouseCallback,
     NSLog(@"start_monitoring - No accessibility permissions");
     return;
   }
+  NSLog(@"start_monitoring");
   if (!monitorHolder) {
     monitorHolder = [[MonitorHolder alloc] init];
   }

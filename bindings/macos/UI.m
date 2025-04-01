@@ -210,10 +210,11 @@ void create_grayscale_effect(double opacity) {
       [NSApp setActivationPolicy:NSApplicationActivationPolicyAccessory];
 
       NSScreen *mainScreen = [NSScreen mainScreen];
-      NSRect screenFrame = [mainScreen frame];
+      // NSRect screenFrame = [mainScreen frame];
+      NSRect customFrame = NSMakeRect(0, 0, 100, 100);
 
       GrayscaleWindow *grayscaleWindow = [[GrayscaleWindow alloc]
-          initWithContentRect:screenFrame
+          initWithContentRect:customFrame
                     styleMask:NSWindowStyleMaskBorderless
                       backing:NSBackingStoreBuffered
                         defer:NO];

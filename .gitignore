@@ -3,3 +3,5 @@
 *.dylib
 *.dll
 *.a
+
+.DS_Store

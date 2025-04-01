@@ -42,7 +42,7 @@ impl RawWindowTitle {
 }
 
 #[cfg(target_os = "macos")]
-#[link(name = "MacMonitor")]
+#[link(name = "MacMonitor", kind = "dylib")]
 extern "C" {
     pub fn run_loop_cycle();
     pub fn detect_focused_window() -> *const RawWindowTitle;
@@ -58,9 +58,11 @@ extern "C" {
         blocked_urls: *const *const c_char,
         url_count: i32,
         redirect_url: *const c_char,
+        blocklist_mode: bool,
     ) -> bool;
     pub fn stop_blocking();
     pub fn is_blocked(external_app_id: *const c_char) -> bool;
+    pub fn close_app(bundle_id: *const c_char, force: bool) -> bool;
     pub fn redirect_to_vibes_page() -> bool;
     pub fn request_automation_permission(bundle_id: *const c_char) -> bool;
     pub fn create_screen_border(red: f64, green: f64, blue: f64, width: f64, opacity: f64);
@@ -77,6 +79,9 @@ extern "C" {
         color1_b: f64,
     );
     pub fn remove_screen_false_color(false_color_window: *const c_char);
+    pub fn register_app_blocked_callback(
+        callback: extern "C" fn(*const *const c_char, *const *const c_char, i32),
+    );
 }
 
 #[cfg(target_os = "windows")]

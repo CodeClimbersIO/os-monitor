@@ -3,19 +3,27 @@ use std::sync::Arc;
 use os_monitor::{
     create_screen_border, create_screen_false_color, create_screen_grayscale, detect_changes,
     get_application_icon_data, has_accessibility_permissions, request_accessibility_permissions,
-    run_loop_cycle, start_blocking, start_monitoring, Monitor, WindowEvent,
+    run_loop_cycle, start_blocking, start_monitoring, BlockableItem, BlockedAppEvent, Monitor,
+    WindowEvent,
 };
 
 fn on_keyboard_events(has_activity: bool) {
-    log::trace!("Keyboard event: {}", has_activity);
+    log::warn!("Keyboard event: {}", has_activity);
 }
 
 fn on_mouse_events(has_activity: bool) {
-    log::trace!("Mouse event: {}", has_activity);
+    log::warn!("Mouse event: {}", has_activity);
 }
 
 fn on_window_event(event: WindowEvent) {
     log::warn!("Window event: {:?}", event);
+}
+
+fn on_app_blocked(event: BlockedAppEvent) {
+    log::warn!("Apps blocked:");
+    for app in &event.blocked_apps {
+        log::warn!("  - {} ({})", app.app_name, app.app_external_id);
+    }
 }
 
 fn main() {
@@ -37,24 +45,28 @@ fn main() {
     log::trace!("icon_data: {}", icon_data.unwrap().len());
 
     let monitor = Monitor::new();
-
     monitor.register_keyboard_callback(Box::new(on_keyboard_events));
     monitor.register_mouse_callback(Box::new(on_mouse_events));
     monitor.register_window_callback(Box::new(on_window_event));
+    monitor.register_app_blocked_callback(Box::new(on_app_blocked));
 
     std::thread::spawn(move || {
-        let blocked_app_ids = vec![
-            "facebook.com".to_string(),
-            "twitter.com".to_string(),
-            "instagram.com".to_string(),
-            "x.com".to_string(),
-            "com.hnc.Discord".to_string(),
-            "com.tinyspeck.slackmacgap".to_string(),
+        start_monitoring(Arc::new(monitor));
+        println!("started_monitoring");
+    });
+    std::thread::spawn(move || {
+        let blocked_apps = vec![
+            BlockableItem::new("facebook.com".to_string(), true),
+            BlockableItem::new("twitter.com".to_string(), true),
+            BlockableItem::new("instagram.com".to_string(), true),
+            BlockableItem::new("linkedin.com".to_string(), true),
+            BlockableItem::new("x.com".to_string(), true),
+            BlockableItem::new("com.todesktop.230313mzl4w4u92".to_string(), false),
+            BlockableItem::new("com.google.Chrome".to_string(), false),
         ];
 
-        // Enable site blocking
-        start_blocking(&blocked_app_ids, "https://ebb.cool/vibes");
-        start_monitoring(Arc::new(monitor));
+        start_blocking(&blocked_apps, "https://ebb.cool/vibes", false);
+        println!("started_blocking");
     });
     std::thread::spawn(move || {
         // initialize_monitor(monitor_clone).expect("Failed to initialize monitor");
