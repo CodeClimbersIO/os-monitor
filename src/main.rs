@@ -1,10 +1,9 @@
 use std::sync::Arc;
 
 use os_monitor::{
-    create_screen_border, create_screen_false_color, create_screen_grayscale, detect_changes,
-    get_application_icon_data, has_accessibility_permissions, request_accessibility_permissions,
-    run_loop_cycle, start_blocking, start_monitoring, BlockableItem, BlockedAppEvent, Monitor,
-    WindowEvent,
+    create_screen_grayscale, detect_changes, get_application_icon_data,
+    has_accessibility_permissions, request_accessibility_permissions, run_loop_cycle,
+    start_blocking, start_monitoring, BlockableItem, BlockedAppEvent, Monitor, WindowEvent,
 };
 
 fn on_keyboard_events(has_activity: bool) {

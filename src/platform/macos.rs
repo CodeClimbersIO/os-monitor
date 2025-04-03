@@ -105,6 +105,7 @@ fn detect_focused_window() {
                     });
                     log::trace!("      detect_focused_window callback Some end");
                 }
+                // bindings::update_typewriter_windows();
             }
             window_title_guard.title = title.to_string();
             window_title_guard.app_name = app_name.to_string();
@@ -295,25 +296,6 @@ pub(crate) fn platform_request_automation_permission(bundle_id: &str) -> bool {
     }
 }
 
-pub(crate) fn platform_create_screen_border(
-    red: f64,
-    green: f64,
-    blue: f64,
-    width: f64,
-    opacity: f64,
-) {
-    log::info!("attributes: {:?}", (red, green, blue, width, opacity));
-    unsafe {
-        bindings::create_screen_border(red, green, blue, width, opacity);
-    }
-}
-
-pub(crate) fn platform_remove_screen_border(border_window: &str) {
-    unsafe {
-        // bindings::remove_screen_border(CString::new(border_window).unwrap().as_ptr());
-    }
-}
-
 pub(crate) fn platform_run_loop_cycle() {
     unsafe {
         bindings::run_loop_cycle();
@@ -324,34 +306,5 @@ pub(crate) fn platform_create_screen_grayscale(opacity: f64) {
     log::info!("Creating grayscale effect with opacity: {}", opacity);
     unsafe {
         bindings::create_screen_grayscale(opacity);
-    }
-}
-
-pub(crate) fn platform_remove_screen_grayscale(grayscale_window: &str) {
-    unsafe {
-        // bindings::remove_screen_grayscale(CString::new(grayscale_window).unwrap().as_ptr());
-    }
-}
-
-pub(crate) fn platform_create_screen_false_color(
-    opacity: f64,
-    color0_r: f64,
-    color0_g: f64,
-    color0_b: f64,
-    color1_r: f64,
-    color1_g: f64,
-    color1_b: f64,
-) {
-    log::info!("Creating false color effect with opacity: {}", opacity);
-    unsafe {
-        bindings::create_screen_false_color(
-            opacity, color0_r, color0_g, color0_b, color1_r, color1_g, color1_b,
-        );
-    }
-}
-
-pub(crate) fn platform_remove_screen_false_color(false_color_window: &str) {
-    unsafe {
-        // bindings::remove_screen_false_color(CString::new(false_color_window).unwrap().as_ptr());
     }
 }

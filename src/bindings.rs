@@ -65,20 +65,7 @@ extern "C" {
     pub fn close_app(bundle_id: *const c_char, force: bool) -> bool;
     pub fn redirect_to_vibes_page() -> bool;
     pub fn request_automation_permission(bundle_id: *const c_char) -> bool;
-    pub fn create_screen_border(red: f64, green: f64, blue: f64, width: f64, opacity: f64);
-    pub fn remove_screen_border(border_window: *const c_char);
     pub fn create_screen_grayscale(opacity: f64);
-    pub fn remove_screen_grayscale(grayscale_window: *const c_char);
-    pub fn create_screen_false_color(
-        opacity: f64,
-        color0_r: f64,
-        color0_g: f64,
-        color0_b: f64,
-        color1_r: f64,
-        color1_g: f64,
-        color1_b: f64,
-    );
-    pub fn remove_screen_false_color(false_color_window: *const c_char);
     pub fn register_app_blocked_callback(
         callback: extern "C" fn(*const *const c_char, *const *const c_char, i32),
     );

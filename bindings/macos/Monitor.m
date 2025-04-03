@@ -1,12 +1,9 @@
-// Monitor.m
-
 #import "Monitor.h"
 #import "UI.h"
 #import <ApplicationServices/ApplicationServices.h>
 #import <Cocoa/Cocoa.h>
 #import <objc/runtime.h>
 
-// Add this typedef before using it
 typedef void (*WebsiteVisitCallback)(const char *url);
 
 @interface MonitorHolder : NSObject
@@ -28,6 +25,18 @@ void run_loop_cycle() {
   NSDate *stopDate =
       [NSDate dateWithTimeIntervalSinceNow:0.01]; // 1/100th of a second
   [[NSRunLoop currentRunLoop] runUntilDate:stopDate];
+}
+
+void start_run_loop() {
+  @autoreleasepool {
+    NSLog(@"Processing events");
+    NSLog(@"Thread: %@", [NSThread currentThread]);
+
+    NSRunLoop *currentRunLoop = [NSRunLoop currentRunLoop];
+
+    [currentRunLoop run];
+    NSLog(@"Processing events end");
+  }
 }
 
 CGEventRef eventCallback(CGEventTapProxy proxy, CGEventType type,
@@ -128,7 +137,7 @@ void start_monitoring(MouseEventCallback mouseCallback,
                      kCFRunLoopCommonModes);
   CGEventTapEnable(_eventTap, true);
 
-  // start_run_loop();
+  start_run_loop();
 }
 
 const char *get_app_icon_data(const char *bundle_id) {
@@ -173,33 +182,6 @@ void free_icon_data(const char *data) {
   }
 }
 
-void create_screen_border(double red, double green, double blue, double width,
-                          double opacity) {
-  NSLog(@"Values: %f, %f, %f, %f, %f", red, green, blue, width, opacity);
-  create_border(red, green, blue, width, opacity);
-}
-
-void remove_screen_border(NSWindow *border_window) {
-  remove_border(border_window);
-}
-
 void create_screen_grayscale(double opacity) {
-  NSLog(@"Creating grayscale effect with opacity: %f", opacity);
   create_grayscale_effect(opacity);
-}
-
-void remove_screen_grayscale(NSWindow *grayscale_window) {
-  remove_grayscale_effect(grayscale_window);
-}
-
-void create_screen_false_color(double opacity, double color0_r, double color0_g,
-                               double color0_b, double color1_r,
-                               double color1_g, double color1_b) {
-  NSLog(@"Creating false color effect with opacity: %f", opacity);
-  create_false_color_effect(opacity, color0_r, color0_g, color0_b, color1_r,
-                            color1_g, color1_b);
-}
-
-void remove_screen_false_color(NSWindow *false_color_window) {
-  remove_false_color_effect(false_color_window);
 }

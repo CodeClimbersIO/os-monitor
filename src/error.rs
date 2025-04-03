@@ -4,6 +4,7 @@ pub enum MonitorError {
     NotRunning,
     PlatformError(String),
     ForeignException(String),
+    Other(String),
 }
 
 impl std::fmt::Display for MonitorError {
@@ -13,6 +14,7 @@ impl std::fmt::Display for MonitorError {
             MonitorError::NotRunning => write!(f, "Monitor is not running"),
             MonitorError::PlatformError(msg) => write!(f, "Platform error: {}", msg),
             MonitorError::ForeignException(msg) => write!(f, "Foreign exception: {}", msg),
+            MonitorError::Other(msg) => write!(f, "Other error: {}", msg),
         }
     }
 }

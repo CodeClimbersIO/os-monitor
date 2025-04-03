@@ -379,6 +379,29 @@ BOOL isDomain(NSString *str) {
   return [self.bundleId isEqualToString:@"com.brave.Browser"];
 }
 
+- (pid_t)processIdentifier {
+  return _runningApplication.processIdentifier;
+}
+
+- (CGWindowID)getFocusedWindowId {
+  pid_t pid = self.processIdentifier;
+  CFArrayRef windowList = CGWindowListCopyWindowInfo(
+      kCGWindowListOptionOnScreenOnly, kCGNullWindowID);
+
+  for (id window in (__bridge NSArray *)windowList) {
+    NSDictionary *windowDict = (NSDictionary *)window;
+    NSNumber *ownerPID = windowDict[(id)kCGWindowOwnerPID];
+
+    if ([ownerPID intValue] == pid) {
+      CGWindowID windowID = [windowDict[(id)kCGWindowNumber] unsignedIntValue];
+
+      // This will only work if both windows are at the same level
+      return windowID;
+      break;
+    }
+  }
+}
+
 @end
 
 // Modified version of detect_focused_window to use our new classes
