@@ -16,7 +16,7 @@ BOOL isDomain(NSString *str);
 @class AccessibilityElement;
 @class FocusedApp;
 
-@interface AppWindow : NSObject
+@interface AccessibilityWindow : NSObject
 @property(nonatomic, strong) AccessibilityElement *accessibilityElement;
 @property(nonatomic, weak) FocusedApp *parentApp;
 - (instancetype)initWithAccessibilityElement:(AccessibilityElement *)element
@@ -46,7 +46,7 @@ BOOL isDomain(NSString *str);
 - (NSString *)url;
 - (pid_t)processIdentifier;
 - (BOOL)isUrlElementFocused;
-- (AppWindow *)focusedWindow;
+- (AccessibilityWindow *)focusedWindow;
 - (WindowTitle *)windowTitleStructWithWindow;
 - (CGWindowID)getFocusedWindowId;
 - (BOOL)isSupportedBrowser;

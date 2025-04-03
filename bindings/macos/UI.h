@@ -6,9 +6,12 @@
 // Function to create a grayscale effect over the entire screen
 // Parameters:
 //   opacity - transparency of the effect (0.0 to 1.0)
-void create_grayscale_effect(double opacity);
+void create_typewriter_window(double opacity);
 
 // Function to remove the grayscale effect
 // Parameters:
 //   grayscale_window - pointer to the window to be removed
-void remove_grayscale_effect(NSWindow *grayscale_window);
+void remove_typewriter_window();
+
+// Function to sync the grayscale window order
+void sync_typewriter_window_order();

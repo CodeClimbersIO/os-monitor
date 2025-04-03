@@ -182,6 +182,8 @@ void free_icon_data(const char *data) {
   }
 }
 
-void create_screen_grayscale(double opacity) {
-  create_grayscale_effect(opacity);
+void create_typewriter_window(double opacity) {
+  create_typewriter_window(opacity);
 }
+
+void sync_typewriter_window_order() { sync_typewriter_window_order(); }

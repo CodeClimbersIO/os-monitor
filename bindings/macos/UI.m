@@ -2,11 +2,13 @@
 #import "AccessibilityElement.h"
 #import "Application.h"
 
-@interface GrayscaleWindow : NSWindow
+static AppWindow *currentTypewriterWindow = nil;
+
+@interface AppWindow : NSWindow
 @property(nonatomic, assign) CGFloat opacity;
 @end
 
-@implementation GrayscaleWindow
+@implementation AppWindow
 
 - (instancetype)initWithContentRect:(NSRect)contentRect
                           styleMask:(NSWindowStyleMask)style
@@ -54,36 +56,38 @@
   [self setContentView:visualEffectView];
 }
 
+- (void)syncOrderWithFocusedWindow {
+  // Get the frontmost app using our existing FocusedApp class
+  FocusedApp *frontmostApp = [FocusedApp frontmostApp];
+  if (!frontmostApp) {
+    NSLog(@"Failed to get frontmost application");
+    return;
+  }
+
+  // Get the window ID of the focused window
+  CGWindowID windowId = [frontmostApp getFocusedWindowId];
+  if (windowId == kCGNullWindowID) {
+    NSLog(@"Failed to get window ID of focused window");
+    return;
+  }
+
+  NSLog(@"Creating grayscale effect for window ID: %u", windowId);
+  [self orderWindow:NSWindowBelow relativeTo:windowId];
+}
 @end
 
-// Function to create a grayscale effect over the screen
-void create_grayscale_effect(double opacity) {
+void create_typewriter_window(double opacity) {
   @try {
-    // Get the frontmost app using our existing FocusedApp class
-    FocusedApp *frontmostApp = [FocusedApp frontmostApp];
-    if (!frontmostApp) {
-      NSLog(@"Failed to get frontmost application");
-      return;
-    }
-
-    // Get the window ID of the focused window
-    CGWindowID windowId = [frontmostApp getFocusedWindowId];
-    if (windowId == kCGNullWindowID) {
-      NSLog(@"Failed to get window ID of focused window");
-      return;
-    }
-
-    NSLog(@"Creating grayscale effect for window ID: %u", windowId);
 
     // Create grayscale window covering the entire screen
     NSScreen *mainScreen = [NSScreen mainScreen];
     NSRect screenFrame = [mainScreen frame];
 
-    GrayscaleWindow *grayscaleWindow =
-        [[GrayscaleWindow alloc] initWithContentRect:screenFrame
-                                           styleMask:NSWindowStyleMaskBorderless
-                                             backing:NSBackingStoreBuffered
-                                               defer:NO];
+    AppWindow *grayscaleWindow =
+        [[AppWindow alloc] initWithContentRect:screenFrame
+                                     styleMask:NSWindowStyleMaskBorderless
+                                       backing:NSBackingStoreBuffered
+                                         defer:NO];
 
     // Configure grayscale effect
     grayscaleWindow.opacity = opacity;
@@ -94,18 +98,47 @@ void create_grayscale_effect(double opacity) {
     [grayscaleWindow makeKeyAndOrderFront:nil];
 
     // Order it below the focused window
-    [grayscaleWindow orderWindow:NSWindowBelow relativeTo:windowId];
+    [grayscaleWindow syncOrderWithFocusedWindow];
+
+    currentTypewriterWindow = grayscaleWindow;
 
   } @catch (NSException *exception) {
     NSLog(
-        @"Exception in create_grayscale_effect: %@\nReason: %@\nCallStack: %@",
+        @"Exception in create_typewriter_window: %@\nReason: %@\nCallStack: %@",
         exception.name, exception.reason, [exception callStackSymbols]);
   }
 }
 
-// Function to remove the grayscale effect
-void remove_grayscale_effect(NSWindow *grayscale_window) {
-  if (grayscale_window != nil) {
-    [grayscale_window close];
+void remove_typewriter_window() {
+  if (currentTypewriterWindow) {
+    [currentTypewriterWindow close];
+    currentTypewriterWindow = nil;
   }
 }
+
+void sync_typewriter_window_order() {
+  if (currentTypewriterWindow) {
+    [currentTypewriterWindow syncOrderWithFocusedWindow];
+  }
+}
+
+// void sync_typewriter_window_order(AppWindow *grayscale_window) {
+//       // Get the frontmost app using our existing FocusedApp class
+//     FocusedApp *frontmostApp = [FocusedApp frontmostApp];
+//     if (!frontmostApp) {
+//       NSLog(@"Failed to get frontmost application");
+//       return;
+//     }
+
+//     // Get the window ID of the focused window
+//     CGWindowID windowId = [frontmostApp getFocusedWindowId];
+//     if (windowId == kCGNullWindowID) {
+//       NSLog(@"Failed to get window ID of focused window");
+//       return;
+//     }
+
+//     NSLog(@"Creating grayscale effect for window ID: %u", windowId);
+//   if (grayscale_window != nil) {
+//     [grayscale_window orderWindow:NSWindowBelow relativeTo:windowId];
+//   }
+// }

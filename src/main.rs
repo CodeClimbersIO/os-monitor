@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use os_monitor::{
-    create_screen_grayscale, detect_changes, get_application_icon_data,
+    create_typewriter_window, detect_changes, get_application_icon_data,
     has_accessibility_permissions, request_accessibility_permissions, run_loop_cycle,
     start_blocking, start_monitoring, BlockableItem, BlockedAppEvent, Monitor, WindowEvent,
 };
@@ -37,7 +37,7 @@ fn main() {
     }
 
     // Create a grayscale effect with 0.7 opacity
-    create_screen_grayscale(0.9);
+    create_typewriter_window(0.9);
     run_loop_cycle();
 
     let icon_data = get_application_icon_data("md.obsidian");

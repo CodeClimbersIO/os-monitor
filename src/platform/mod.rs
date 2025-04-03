@@ -73,6 +73,6 @@ pub fn run_loop_cycle() {
     platform_run_loop_cycle()
 }
 
-pub fn create_screen_grayscale(opacity: f64) {
-    platform_create_screen_grayscale(opacity)
+pub fn create_typewriter_window(opacity: f64) {
+    platform_create_typewriter_window(opacity)
 }

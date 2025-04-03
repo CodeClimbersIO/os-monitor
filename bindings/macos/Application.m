@@ -33,7 +33,7 @@ BOOL isDomain(NSString *str) {
   return matches.count > 0;
 }
 
-@implementation AppWindow
+@implementation AccessibilityWindow
 
 - (instancetype)initWithAccessibilityElement:(AccessibilityElement *)element
                                    parentApp:(FocusedApp *)parentApp {
@@ -284,7 +284,7 @@ BOOL isDomain(NSString *str) {
     return nil;
   }
 
-  AppWindow *window = [self focusedWindow];
+  AccessibilityWindow *window = [self focusedWindow];
   if (!window) {
     NSLog(@"Failed to get focused window");
     return nil;
@@ -296,7 +296,7 @@ BOOL isDomain(NSString *str) {
   if (![self isSupportedBrowser]) {
     return NO;
   }
-  AppWindow *window = [self focusedWindow];
+  AccessibilityWindow *window = [self focusedWindow];
   if (!window) {
     NSLog(@"Failed to get focused window");
     return NO;
@@ -304,7 +304,7 @@ BOOL isDomain(NSString *str) {
   return [window isUrlElementFocused];
 }
 
-- (AppWindow *)focusedWindow {
+- (AccessibilityWindow *)focusedWindow {
   AccessibilityElement *focusedWindowElement =
       [_accessibilityElement valueForAttribute:kAXFocusedWindowAttribute];
 
@@ -313,14 +313,14 @@ BOOL isDomain(NSString *str) {
     return nil;
   }
 
-  AppWindow *window =
-      [[AppWindow alloc] initWithAccessibilityElement:focusedWindowElement
-                                            parentApp:self];
+  AccessibilityWindow *window = [[AccessibilityWindow alloc]
+      initWithAccessibilityElement:focusedWindowElement
+                         parentApp:self];
   return window;
 }
 
 - (WindowTitle *)windowTitleStructWithWindow {
-  AppWindow *window = [self focusedWindow];
+  AccessibilityWindow *window = [self focusedWindow];
   if (!window) {
     NSLog(@"Failed to get focused window");
     return nil;

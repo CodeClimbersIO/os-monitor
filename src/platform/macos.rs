@@ -302,9 +302,9 @@ pub(crate) fn platform_run_loop_cycle() {
     }
 }
 
-pub(crate) fn platform_create_screen_grayscale(opacity: f64) {
+pub(crate) fn platform_create_typewriter_window(opacity: f64) {
     log::info!("Creating grayscale effect with opacity: {}", opacity);
     unsafe {
-        bindings::create_screen_grayscale(opacity);
+        bindings::create_typewriter_window(opacity);
     }
 }
