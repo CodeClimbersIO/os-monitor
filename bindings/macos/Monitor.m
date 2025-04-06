@@ -181,9 +181,3 @@ void free_icon_data(const char *data) {
     free((void *)data);
   }
 }
-
-void create_typewriter_window(double opacity) {
-  create_typewriter_window(opacity);
-}
-
-void sync_typewriter_window_order() { sync_typewriter_window_order(); }

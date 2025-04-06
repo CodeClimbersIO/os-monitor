@@ -400,6 +400,7 @@ BOOL isDomain(NSString *str) {
       break;
     }
   }
+  return 0;
 }
 
 @end

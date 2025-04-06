@@ -76,3 +76,7 @@ pub fn run_loop_cycle() {
 pub fn create_typewriter_window(opacity: f64) {
     platform_create_typewriter_window(opacity)
 }
+
+pub fn sync_typewriter_window_order() {
+    platform_sync_typewriter_window_order();
+}

@@ -1,5 +1,6 @@
 #import "AccessibilityElement.h"
 #import "Application.h"
+#import "UI.h"
 #import <ApplicationServices/ApplicationServices.h>
 #import <Cocoa/Cocoa.h>
 

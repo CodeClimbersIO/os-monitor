@@ -3,7 +3,8 @@ use std::sync::Arc;
 use os_monitor::{
     create_typewriter_window, detect_changes, get_application_icon_data,
     has_accessibility_permissions, request_accessibility_permissions, run_loop_cycle,
-    start_blocking, start_monitoring, BlockableItem, BlockedAppEvent, Monitor, WindowEvent,
+    start_blocking, start_monitoring, sync_typewriter_window_order, BlockableItem, BlockedAppEvent,
+    Monitor, WindowEvent,
 };
 
 fn on_keyboard_events(has_activity: bool) {
@@ -16,6 +17,7 @@ fn on_mouse_events(has_activity: bool) {
 
 fn on_window_event(event: WindowEvent) {
     log::warn!("Window event: {:?}", event);
+    sync_typewriter_window_order()
 }
 
 fn on_app_blocked(event: BlockedAppEvent) {

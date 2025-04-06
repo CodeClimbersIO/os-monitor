@@ -2,8 +2,6 @@
 #import "AccessibilityElement.h"
 #import "Application.h"
 
-static AppWindow *currentTypewriterWindow = nil;
-
 @interface AppWindow : NSWindow
 @property(nonatomic, assign) CGFloat opacity;
 @end
@@ -76,6 +74,8 @@ static AppWindow *currentTypewriterWindow = nil;
 }
 @end
 
+static AppWindow *currentTypewriterWindow = nil;
+
 void create_typewriter_window(double opacity) {
   @try {
 
@@ -121,24 +121,3 @@ void sync_typewriter_window_order() {
     [currentTypewriterWindow syncOrderWithFocusedWindow];
   }
 }
-
-// void sync_typewriter_window_order(AppWindow *grayscale_window) {
-//       // Get the frontmost app using our existing FocusedApp class
-//     FocusedApp *frontmostApp = [FocusedApp frontmostApp];
-//     if (!frontmostApp) {
-//       NSLog(@"Failed to get frontmost application");
-//       return;
-//     }
-
-//     // Get the window ID of the focused window
-//     CGWindowID windowId = [frontmostApp getFocusedWindowId];
-//     if (windowId == kCGNullWindowID) {
-//       NSLog(@"Failed to get window ID of focused window");
-//       return;
-//     }
-
-//     NSLog(@"Creating grayscale effect for window ID: %u", windowId);
-//   if (grayscale_window != nil) {
-//     [grayscale_window orderWindow:NSWindowBelow relativeTo:windowId];
-//   }
-// }
