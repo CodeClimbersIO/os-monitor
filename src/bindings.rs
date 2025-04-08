@@ -70,6 +70,7 @@ extern "C" {
     );
     pub fn create_typewriter_window(opacity: f64);
     pub fn sync_typewriter_window_order();
+    pub fn remove_typewriter_window();
 }
 
 #[cfg(target_os = "windows")]

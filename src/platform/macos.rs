@@ -303,8 +303,19 @@ pub(crate) fn platform_run_loop_cycle() {
 }
 
 pub(crate) fn platform_create_typewriter_window(opacity: f64) {
-    log::info!("Creating grayscale effect with opacity: {}", opacity);
     unsafe {
         bindings::create_typewriter_window(opacity);
+    }
+}
+
+pub(crate) fn platform_sync_typewriter_window_order() {
+    unsafe {
+        bindings::sync_typewriter_window_order();
+    }
+}
+
+pub(crate) fn platform_remove_typewriter_window() {
+    unsafe {
+        bindings::remove_typewriter_window();
     }
 }
