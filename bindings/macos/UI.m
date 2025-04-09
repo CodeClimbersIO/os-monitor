@@ -111,7 +111,8 @@ void create_typewriter_window(double opacity) {
 
 void remove_typewriter_window() {
   if (currentTypewriterWindow) {
-    [currentTypewriterWindow close];
+    [currentTypewriterWindow orderOut:nil];
+
     currentTypewriterWindow = nil;
   }
 }

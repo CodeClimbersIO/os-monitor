@@ -2,9 +2,9 @@ use std::sync::Arc;
 
 use os_monitor::{
     create_typewriter_window, detect_changes, get_application_icon_data,
-    has_accessibility_permissions, request_accessibility_permissions, run_loop_cycle,
-    start_blocking, start_monitoring, sync_typewriter_window_order, BlockableItem, BlockedAppEvent,
-    Monitor, WindowEvent,
+    has_accessibility_permissions, remove_typewriter_window, request_accessibility_permissions,
+    run_loop_cycle, start_blocking, start_monitoring, sync_typewriter_window_order, BlockableItem,
+    BlockedAppEvent, Monitor, WindowEvent,
 };
 
 fn on_keyboard_events(has_activity: bool) {
@@ -39,7 +39,7 @@ fn main() {
     }
 
     // Create a grayscale effect with 0.7 opacity
-    create_typewriter_window(0.9);
+    create_typewriter_window(0.5);
     run_loop_cycle();
 
     let icon_data = get_application_icon_data("md.obsidian");
@@ -78,6 +78,10 @@ fn main() {
             std::thread::sleep(std::time::Duration::from_secs(1));
         }
     });
+
+    std::thread::sleep(std::time::Duration::from_secs(5));
+    remove_typewriter_window();
+    run_loop_cycle();
 
     loop {
         std::thread::sleep(std::time::Duration::from_secs(1));
