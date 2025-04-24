@@ -70,18 +70,43 @@ fn main() {
         println!("cargo:info=Source files: {:?}", source_files);
         println!("cargo:warning=Output directory: {}", out_path.display());
 
+        // Get the target architecture
+        let target_arch =
+            env::var("CARGO_CFG_TARGET_ARCH").unwrap_or_else(|_| "aarch64".to_string());
+        println!("cargo:info=Target architecture: {}", target_arch);
+
+        // Add architecture-specific flags for cross-compilation
+        let mut arch_flags: Vec<&str> = Vec::new();
+        match target_arch.as_str() {
+            "x86_64" => {
+                arch_flags.push("-arch");
+                arch_flags.push("x86_64");
+            }
+            "aarch64" => {
+                arch_flags.push("-arch");
+                arch_flags.push("arm64");
+            }
+            _ => {}
+        };
+        println!("cargo:info=Using architecture flags: {:?}", arch_flags);
+
         // Build the Objective-C code using clang
         println!("cargo:info=Compiling Objective-C code...");
+        let mut clang_args = vec![
+            "-fobjc-arc",
+            "-fmodules",
+            "-framework",
+            "Cocoa",
+            "-dynamiclib",
+            "-install_name",
+            "@rpath/libMacMonitor.dylib",
+        ];
+
+        // Add architecture flags if any
+        clang_args.extend(arch_flags);
+
         let status = std::process::Command::new("clang")
-            .args(&[
-                "-fobjc-arc",
-                "-fmodules",
-                "-framework",
-                "Cocoa",
-                "-dynamiclib",
-                "-install_name",
-                "@rpath/libMacMonitor.dylib",
-            ])
+            .args(&clang_args)
             // Add all source files as separate arguments
             .args(source_files.iter().map(|p| p.to_str().unwrap()))
             .args(&[
