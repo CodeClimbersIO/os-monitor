@@ -1,6 +1,6 @@
 [package]
 name = "os-monitor"
-version = "0.4.7"
+version = "0.4.8"
 edition = "2021"
 authors = ["Paul Hovley <rphovley@gmail.com>"]
 description = "OS level monitor for tracking window focus and input events"
@@ -14,6 +14,7 @@ once_cell = "1.18"
 ctrlc = "3.4.5"
 log = "0.4.25"
 env_logger = "0.11.6"
+tokio = { version = "1", features = ["sync"] }
 
 [build-dependencies]
 cc = "1.0"

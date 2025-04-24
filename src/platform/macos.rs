@@ -1,5 +1,5 @@
 use crate::event::{BlockedApp, Platform, WindowEvent};
-use crate::{bindings, event::EventCallback, Monitor};
+use crate::{bindings, Monitor};
 use crate::{BlockableItem, BlockedAppEvent, MonitorError};
 use once_cell::sync::Lazy;
 use std::ffi::{c_char, CStr, CString};
@@ -22,6 +22,42 @@ static FOCUSED_WINDOW: Mutex<WindowTitle> = Mutex::new(WindowTitle {
     app_name: String::new(),
     title: String::new(),
 });
+
+// Add this trait and struct for dependency injection
+pub trait FocusedWindowDetector {
+    fn detect_focused_window(&self);
+}
+
+pub trait EventSender {
+    fn send_buffered_events(&self);
+    fn should_send_events(&self) -> bool;
+    fn mark_events_sent(&self);
+}
+
+// Default implementation using globals
+pub struct DefaultDependencies;
+
+impl FocusedWindowDetector for DefaultDependencies {
+    fn detect_focused_window(&self) {
+        detect_focused_window()
+    }
+}
+
+impl EventSender for DefaultDependencies {
+    fn send_buffered_events(&self) {
+        send_buffered_events()
+    }
+
+    fn should_send_events(&self) -> bool {
+        let last_send = LAST_SEND.lock().unwrap();
+        last_send.elapsed() >= Duration::from_secs(30)
+    }
+
+    fn mark_events_sent(&self) {
+        let mut last_send = LAST_SEND.lock().unwrap();
+        *last_send = Instant::now();
+    }
+}
 
 fn detect_focused_window() {
     unsafe {
@@ -67,7 +103,7 @@ fn detect_focused_window() {
 
                 let monitor_guard = MONITOR.lock().unwrap();
                 if let Some(monitor) = monitor_guard.as_ref() {
-                    monitor.on_app_blocked(BlockedAppEvent {
+                    monitor.send_app_blocked_event(BlockedAppEvent {
                         blocked_apps: vec![blocked_app],
                     });
                 }
@@ -96,7 +132,7 @@ fn detect_focused_window() {
                 log::trace!("    detect_focused_window callback");
                 if let Some(monitor) = monitor_guard.as_ref() {
                     log::trace!("      detect_focused_window callback Some");
-                    monitor.on_window_event(WindowEvent {
+                    monitor.send_window_event(WindowEvent {
                         window_title: title.to_string(),
                         app_name: app_name.to_string(),
                         url: url,
@@ -160,7 +196,7 @@ extern "C" fn app_blocked_callback(
             }
 
             log::trace!("app_blocked_callback blocked_apps: {:?}", blocked_apps);
-            monitor.on_app_blocked(BlockedAppEvent {
+            monitor.send_app_blocked_event(BlockedAppEvent {
                 blocked_apps: blocked_apps,
             });
         }
@@ -172,32 +208,37 @@ fn send_buffered_events() {
     if let Some(monitor) = monitor_guard.as_ref() {
         {
             let mut has_activity = HAS_KEYBOARD_ACTIVITY.lock().unwrap();
-            monitor.on_keyboard_events(has_activity.clone());
+            monitor.send_keyboard_event(has_activity.clone());
             *has_activity = false;
         }
 
         {
             let mut has_activity = HAS_MOUSE_ACTIVITY.lock().unwrap();
-            monitor.on_mouse_events(has_activity.clone());
+            monitor.send_mouse_event(has_activity.clone());
             *has_activity = false;
         }
     }
 }
 
 pub(crate) fn platform_detect_changes() -> Result<(), MonitorError> {
+    platform_detect_changes_with_deps(&DefaultDependencies {})
+}
+
+pub(crate) fn platform_detect_changes_with_deps<T>(deps: &T) -> Result<(), MonitorError>
+where
+    T: FocusedWindowDetector + EventSender,
+{
     log::trace!("platform_detect_changes start");
-    detect_focused_window();
+    deps.detect_focused_window();
     log::trace!("detected focused window");
 
-    let mut last_send = LAST_SEND.lock().unwrap();
-    log::trace!("last_send: {:?}", last_send.elapsed());
-
-    if last_send.elapsed() >= Duration::from_secs(30) {
+    if deps.should_send_events() {
         log::trace!("sending buffered events");
-        send_buffered_events();
+        deps.send_buffered_events();
         log::trace!("sent buffered events");
-        *last_send = Instant::now();
+        deps.mark_events_sent();
     }
+
     log::trace!("platform_detect_changes end");
     Ok(())
 }
@@ -317,5 +358,87 @@ pub(crate) fn platform_sync_typewriter_window_order() {
 pub(crate) fn platform_remove_typewriter_window() {
     unsafe {
         bindings::remove_typewriter_window();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::cell::Cell;
+    use std::rc::Rc;
+
+    struct MockDependencies {
+        focused_window_detected: Rc<Cell<bool>>,
+        should_send_events: bool,
+        events_sent: Rc<Cell<bool>>,
+    }
+
+    impl FocusedWindowDetector for MockDependencies {
+        fn detect_focused_window(&self) {
+            self.focused_window_detected.set(true);
+        }
+    }
+
+    impl EventSender for MockDependencies {
+        fn send_buffered_events(&self) {
+            self.events_sent.set(true);
+        }
+
+        fn should_send_events(&self) -> bool {
+            self.should_send_events
+        }
+
+        fn mark_events_sent(&self) {
+            // Nothing to do in the mock
+        }
+    }
+
+    #[test]
+    fn test_platform_detect_changes() {
+        // Setup
+        let focused_window_detected = Rc::new(Cell::new(false));
+        let events_sent = Rc::new(Cell::new(false));
+
+        let deps = MockDependencies {
+            focused_window_detected: focused_window_detected.clone(),
+            should_send_events: true,
+            events_sent: events_sent.clone(),
+        };
+
+        // Execute
+        let result = platform_detect_changes_with_deps(&deps);
+
+        // Verify
+        assert!(result.is_ok());
+        assert!(
+            focused_window_detected.get(),
+            "detect_focused_window should be called"
+        );
+        assert!(
+            events_sent.get(),
+            "send_buffered_events should be called when should_send_events is true"
+        );
+
+        // Test when events shouldn't be sent
+        let focused_window_detected = Rc::new(Cell::new(false));
+        let events_sent = Rc::new(Cell::new(false));
+
+        let deps = MockDependencies {
+            focused_window_detected: focused_window_detected.clone(),
+            should_send_events: false,
+            events_sent: events_sent.clone(),
+        };
+
+        let result = platform_detect_changes_with_deps(&deps);
+
+        assert!(result.is_ok());
+        assert!(
+            focused_window_detected.get(),
+            "detect_focused_window should always be called"
+        );
+        assert!(
+            !events_sent.get(),
+            "send_buffered_events should not be called when should_send_events is false"
+        );
     }
 }

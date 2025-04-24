@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::sync::Mutex;
+use tokio::sync::broadcast::{self, Receiver, Sender};
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum Platform {
@@ -71,76 +71,241 @@ pub struct BlockedAppEvent {
     pub blocked_apps: Vec<BlockedApp>,
 }
 
-pub trait EventCallback: Send + Sync {
-    fn on_mouse_events(&self, has_activity: bool);
-    fn on_keyboard_events(&self, has_activity: bool);
-    fn on_window_event(&self, event: WindowEvent);
-    fn on_app_blocked(&self, event: BlockedAppEvent);
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum AppEvent {
+    Mouse(bool),
+    Keyboard(bool),
+    Window(WindowEvent),
+    AppBlocked(BlockedAppEvent),
 }
 
 pub struct Monitor {
-    mouse_callbacks: Mutex<Vec<Box<dyn Fn(bool) + Send + Sync>>>,
-    keyboard_callbacks: Mutex<Vec<Box<dyn Fn(bool) + Send + Sync>>>,
-    window_callbacks: Mutex<Vec<Box<dyn Fn(WindowEvent) + Send + Sync>>>,
-    app_blocked_callbacks: Mutex<Vec<Box<dyn Fn(BlockedAppEvent) + Send + Sync>>>,
+    event_sender: Sender<AppEvent>,
 }
 
 impl Monitor {
     pub fn new() -> Self {
+        // A capacity of 100 should be more than enough for most use cases
+        let (sender, _) = broadcast::channel(100);
+
         Self {
-            mouse_callbacks: Mutex::new(Vec::new()),
-            keyboard_callbacks: Mutex::new(Vec::new()),
-            window_callbacks: Mutex::new(Vec::new()),
-            app_blocked_callbacks: Mutex::new(Vec::new()),
+            event_sender: sender,
         }
     }
 
-    pub fn register_keyboard_callback(&self, callback: Box<dyn Fn(bool) + Send + Sync>) {
-        self.keyboard_callbacks.lock().unwrap().push(callback);
+    /// Get a new receiver to subscribe to events
+    pub fn subscribe(&self) -> Receiver<AppEvent> {
+        self.event_sender.subscribe()
     }
 
-    pub fn register_mouse_callback(&self, callback: Box<dyn Fn(bool) + Send + Sync>) {
-        self.mouse_callbacks.lock().unwrap().push(callback);
+    pub fn send_mouse_event(&self, has_activity: bool) {
+        let _ = self.event_sender.send(AppEvent::Mouse(has_activity));
     }
 
-    pub fn register_window_callback(&self, callback: Box<dyn Fn(WindowEvent) + Send + Sync>) {
-        self.window_callbacks.lock().unwrap().push(callback);
+    pub fn send_keyboard_event(&self, has_activity: bool) {
+        let _ = self.event_sender.send(AppEvent::Keyboard(has_activity));
     }
 
-    pub fn register_app_blocked_callback(
-        &self,
-        callback: Box<dyn Fn(BlockedAppEvent) + Send + Sync>,
-    ) {
-        self.app_blocked_callbacks.lock().unwrap().push(callback);
+    pub fn send_window_event(&self, event: WindowEvent) {
+        let _ = self.event_sender.send(AppEvent::Window(event));
+    }
+
+    pub fn send_app_blocked_event(&self, event: BlockedAppEvent) {
+        let _ = self.event_sender.send(AppEvent::AppBlocked(event));
     }
 }
 
-impl EventCallback for Monitor {
-    fn on_mouse_events(&self, has_activity: bool) {
-        let mut callbacks = self.mouse_callbacks.lock().unwrap();
-        for callback in callbacks.iter_mut() {
-            callback(has_activity);
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::thread;
+
+    #[test]
+    fn test_multiple_receivers() {
+        // Create a monitor
+        let monitor = Monitor::new();
+
+        // Create three receivers
+        let mut receiver1 = monitor.subscribe();
+        let mut receiver2 = monitor.subscribe();
+        let mut receiver3 = monitor.subscribe();
+
+        // Send a mouse event
+        monitor.send_mouse_event(true);
+
+        // Test that all receivers get the event
+        match receiver1.blocking_recv() {
+            Ok(AppEvent::Mouse(activity)) => assert!(activity),
+            _ => panic!("Receiver 1 did not get the correct event"),
+        }
+
+        match receiver2.blocking_recv() {
+            Ok(AppEvent::Mouse(activity)) => assert!(activity),
+            _ => panic!("Receiver 2 did not get the correct event"),
+        }
+
+        match receiver3.blocking_recv() {
+            Ok(AppEvent::Mouse(activity)) => assert!(activity),
+            _ => panic!("Receiver 3 did not get the correct event"),
         }
     }
 
-    fn on_keyboard_events(&self, has_activity: bool) {
-        let mut callbacks = self.keyboard_callbacks.lock().unwrap();
-        for callback in callbacks.iter_mut() {
-            callback(has_activity);
+    #[test]
+    fn test_late_subscriber() {
+        // Create a monitor
+        let monitor = Monitor::new();
+
+        // Create initial receiver
+        let mut receiver1 = monitor.subscribe();
+
+        // Send first event
+        monitor.send_mouse_event(true);
+
+        // Create a late subscriber
+        let mut receiver2 = monitor.subscribe();
+
+        // Send second event
+        monitor.send_keyboard_event(true);
+
+        // First receiver gets both events
+        match receiver1.blocking_recv() {
+            Ok(AppEvent::Mouse(activity)) => assert!(activity),
+            _ => panic!("Receiver 1 did not get the mouse event"),
+        }
+
+        match receiver1.blocking_recv() {
+            Ok(AppEvent::Keyboard(activity)) => assert!(activity),
+            _ => panic!("Receiver 1 did not get the keyboard event"),
+        }
+
+        // Second receiver only gets the keyboard event (missed the mouse event)
+        match receiver2.blocking_recv() {
+            Ok(AppEvent::Keyboard(activity)) => assert!(activity),
+            _ => panic!("Receiver 2 did not get the keyboard event"),
         }
     }
 
-    fn on_window_event(&self, event: WindowEvent) {
-        let mut callbacks = self.window_callbacks.lock().unwrap();
-        for callback in callbacks.iter_mut() {
-            callback(event.clone());
-        }
+    #[test]
+    fn test_multiple_threads() {
+        // Create a monitor
+        let monitor = Monitor::new();
+
+        // Create receivers for different threads
+        let mut receiver1 = monitor.subscribe();
+        let mut receiver2 = monitor.subscribe();
+        let mut receiver3 = monitor.subscribe();
+
+        // Spawn threads to listen for events
+        let handle1 = thread::spawn(move || match receiver1.blocking_recv() {
+            Ok(AppEvent::Mouse(activity)) => activity,
+            _ => false,
+        });
+
+        let handle2 = thread::spawn(move || match receiver2.blocking_recv() {
+            Ok(AppEvent::Mouse(activity)) => activity,
+            _ => false,
+        });
+
+        let handle3 = thread::spawn(move || match receiver3.blocking_recv() {
+            Ok(AppEvent::Mouse(activity)) => activity,
+            _ => false,
+        });
+
+        // Wait a moment to ensure threads are ready
+        thread::sleep(std::time::Duration::from_millis(100));
+
+        // Send event
+        monitor.send_mouse_event(true);
+
+        // Check results from all threads
+        assert!(handle1.join().unwrap());
+        assert!(handle2.join().unwrap());
+        assert!(handle3.join().unwrap());
     }
 
-    fn on_app_blocked(&self, event: BlockedAppEvent) {
-        let callbacks = self.app_blocked_callbacks.lock().unwrap();
-        for callback in callbacks.iter() {
-            callback(event.clone());
+    #[test]
+    fn test_all_event_types() {
+        // Create a monitor
+        let monitor = Monitor::new();
+
+        // Create receivers
+        let mut receiver1 = monitor.subscribe();
+        let mut receiver2 = monitor.subscribe();
+
+        // Send different types of events
+        monitor.send_mouse_event(true);
+        monitor.send_keyboard_event(false);
+
+        let window_event = WindowEvent {
+            app_name: "Test App".to_string(),
+            window_title: "Test Window".to_string(),
+            bundle_id: Some("com.test.app".to_string()),
+            url: None,
+            platform: Platform::Mac,
+        };
+        monitor.send_window_event(window_event.clone());
+
+        let blocked_app = BlockedApp {
+            app_name: "Block Test".to_string(),
+            app_external_id: "com.block.test".to_string(),
+            is_site: false,
+        };
+        monitor.send_app_blocked_event(BlockedAppEvent {
+            blocked_apps: vec![blocked_app.clone()],
+        });
+
+        // Test first receiver gets all events
+        match receiver1.blocking_recv() {
+            Ok(AppEvent::Mouse(activity)) => assert!(activity),
+            _ => panic!("Receiver 1 did not get the mouse event"),
+        }
+
+        match receiver1.blocking_recv() {
+            Ok(AppEvent::Keyboard(activity)) => assert!(!activity),
+            _ => panic!("Receiver 1 did not get the keyboard event"),
+        }
+
+        match receiver1.blocking_recv() {
+            Ok(AppEvent::Window(event)) => {
+                assert_eq!(event.app_name, "Test App");
+                assert_eq!(event.window_title, "Test Window");
+            }
+            _ => panic!("Receiver 1 did not get the window event"),
+        }
+
+        match receiver1.blocking_recv() {
+            Ok(AppEvent::AppBlocked(event)) => {
+                assert_eq!(event.blocked_apps.len(), 1);
+                assert_eq!(event.blocked_apps[0].app_name, "Block Test");
+            }
+            _ => panic!("Receiver 1 did not get the app blocked event"),
+        }
+
+        // Test second receiver also gets all events
+        match receiver2.blocking_recv() {
+            Ok(AppEvent::Mouse(activity)) => assert!(activity),
+            _ => panic!("Receiver 2 did not get the mouse event"),
+        }
+
+        match receiver2.blocking_recv() {
+            Ok(AppEvent::Keyboard(activity)) => assert!(!activity),
+            _ => panic!("Receiver 2 did not get the keyboard event"),
+        }
+
+        match receiver2.blocking_recv() {
+            Ok(AppEvent::Window(event)) => {
+                assert_eq!(event.app_name, "Test App");
+                assert_eq!(event.window_title, "Test Window");
+            }
+            _ => panic!("Receiver 2 did not get the window event"),
+        }
+
+        match receiver2.blocking_recv() {
+            Ok(AppEvent::AppBlocked(event)) => {
+                assert_eq!(event.blocked_apps.len(), 1);
+                assert_eq!(event.blocked_apps[0].app_name, "Block Test");
+            }
+            _ => panic!("Receiver 2 did not get the app blocked event"),
         }
     }
 }
