@@ -12,22 +12,6 @@ pub(crate) use windows::*;
 
 use crate::{BlockableItem, Monitor, MonitorError};
 
-pub fn detect_changes() -> Result<(), MonitorError> {
-    platform_detect_changes()
-}
-
-pub fn has_accessibility_permissions() -> bool {
-    platform_has_accessibility_permissions()
-}
-
-pub fn request_accessibility_permissions() -> bool {
-    platform_request_accessibility_permissions()
-}
-
-pub fn get_application_icon_data(bundle_id: &str) -> Option<String> {
-    platform_get_application_icon_data(bundle_id)
-}
-
 pub fn start_monitoring(monitor: Arc<Monitor>) {
     platform_start_monitoring(monitor);
 }
@@ -42,6 +26,22 @@ pub fn start_blocking(
 
 pub fn stop_blocking() {
     platform_stop_blocking()
+}
+
+pub fn detect_changes() -> Result<(), MonitorError> {
+    platform_detect_changes()
+}
+
+pub fn has_accessibility_permissions() -> bool {
+    platform_has_accessibility_permissions()
+}
+
+pub fn request_accessibility_permissions() -> bool {
+    platform_request_accessibility_permissions()
+}
+
+pub fn get_application_icon_data(bundle_id: &str) -> Option<String> {
+    platform_get_application_icon_data(bundle_id)
 }
 
 pub fn run_loop_cycle() {

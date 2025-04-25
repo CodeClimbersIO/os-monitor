@@ -32,7 +32,6 @@ The monitor achieves cross-platform compatibility through several layers:
    - Provides unified functions that delegate to platform-specific implementations
    - Key functions:
      - `detect_changes()`: Polls for new events
-     - `initialize_callback()`: Sets up event monitoring
 
 3. **Native Bindings** (`src/bindings.rs`)
    - Defines FFI interfaces for both platforms
