@@ -44,10 +44,6 @@ pub fn stop_blocking() {
     platform_stop_blocking()
 }
 
-pub fn request_automation_permission(bundle_id: &str) -> bool {
-    platform_request_automation_permission(bundle_id)
-}
-
 pub fn run_loop_cycle() {
     platform_run_loop_cycle()
 }

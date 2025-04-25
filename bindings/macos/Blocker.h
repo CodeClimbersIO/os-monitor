@@ -20,6 +20,4 @@ BOOL is_blocked(const char *external_app_id);
 
 BOOL close_app(const char *bundle_id, const bool send_callback);
 
-BOOL request_automation_permission(const char *bundle_id);
-
 void register_app_blocked_callback(AppBlockedCallback callback);

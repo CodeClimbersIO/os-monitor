@@ -350,15 +350,6 @@ pub(crate) fn platform_stop_blocking() {
     }
 }
 
-pub(crate) fn platform_request_automation_permission(bundle_id: &str) -> bool {
-    unsafe {
-        match CString::new(bundle_id) {
-            Ok(c_bundle_id) => bindings::request_automation_permission(c_bundle_id.as_ptr()),
-            Err(_) => false,
-        }
-    }
-}
-
 pub(crate) fn platform_run_loop_cycle() {
     unsafe {
         bindings::run_loop_cycle();
