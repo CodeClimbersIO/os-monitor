@@ -285,6 +285,28 @@ pub(crate) fn platform_start_blocking(
     redirect_url: &str,
     blocklist_mode: bool,
 ) -> bool {
+    // test if any of the blocked apps are website urls
+    let is_website_url = blocked_apps.iter().any(|app| app.is_browser);
+    let mut all_items = blocked_apps.to_vec();
+
+    if is_website_url && !blocklist_mode {
+        // add webapps if we have sites that are allowed
+        let browser_bundle_ids = vec![
+            "com.google.Chrome",
+            "com.google.Chrome.beta",
+            "com.google.Chrome.dev",
+            "com.google.Chrome.canary",
+            "com.apple.Safari",
+            "com.microsoft.Edge",
+            "com.brave.Browser",
+            "company.thebrowser.Browser",
+        ];
+        all_items.extend(
+            browser_bundle_ids
+                .iter()
+                .map(|id| BlockableItem::new(id.to_string(), false)),
+        );
+    }
     if !blocklist_mode {
         // if we are in allowlist, add exceptions like system finder, spotify, activity monitor, other mac system apps
         blocked_apps.extend(vec![
