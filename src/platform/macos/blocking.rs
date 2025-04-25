@@ -101,7 +101,7 @@ pub fn platform_start_blocking(
     let exceptions = get_exceptions(has_website_url, blocklist_mode);
     all_items.extend(exceptions);
 
-    let c_urls: Vec<CString> = blocked_apps
+    let c_urls: Vec<CString> = all_items
         .iter()
         .map(|app| CString::new(app.app_external_id.as_str()).unwrap())
         .collect();
