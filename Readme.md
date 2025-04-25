@@ -1,7 +1,7 @@
 # Monitor
 
 The monitor is a Rust application that runs on your computer and is responsible for monitoring your activities. It is specifically responsible for monitoring (but not recording) your window, mouse and keyboard activity.
-Architecture supports multiple platforms.
+Architecture is intended to support multiple platforms.
 
 Implemented platforms:
 
@@ -9,25 +9,11 @@ Implemented platforms:
 - [ ] Windows
 - [ ] Linux
 
+## Supported functionality
+Refer to [src/platform.README.md](src/platform/README.md) for a list of supported functions and their functionality
+
 ## Example Usage
-Here's an example of how to use the monitor as a library by registering event callbacks:
-
-```
-   let monitor = Monitor::new();
-
-   // Register event callbacks
-   monitor.register_keyboard_callback(Box::new(on_keyboard_events));
-   monitor.register_mouse_callback(Box::new(on_mouse_events));
-   monitor.register_window_callback(Box::new(on_window_event));
-
-   initialize_monitor(Arc::new(monitor)).expect("Failed to initialize monitor");
-   loop {
-      detect_changes().expect("Failed to detect changes");
-      std::thread::sleep(std::time::Duration::from_secs(1));
-   }
-```
-
-On first run on macOS, you'll need to grant accessibility permissions to the application. This is required to monitor window focus and input events.
+Refer to `main.rs` for how the different
 
 ### Building and Running
    ```bash
@@ -60,6 +46,7 @@ To add support for a new OS platform:
 2. Implement native bindings in `bindings/`
 3. Implement required traits and functions
 4. Update conditional compilation flags
+5. Refer to [src/platform.README.md](src/platform/README.md) for functionality to mimic
 
 
 ### Other notes
