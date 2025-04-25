@@ -232,18 +232,4 @@ mod tests {
         assert!(!contains_chrome);
         assert!(!contains_finder);
     }
-
-    fn test_blocklist_mode_doesnt_extend_blocked_apps() {
-        let mut blocked_apps = vec![BlockableItem::new("com.example.app".to_string(), false)];
-        let original_count = blocked_apps.len();
-
-        let redirect_url = "https://example.com";
-        let blocklist_mode = true;
-        // Verify no items were added in blocklist mode
-        assert_eq!(
-            blocked_apps.len(),
-            original_count,
-            "No additional items should be added in blocklist mode"
-        );
-    }
 }
