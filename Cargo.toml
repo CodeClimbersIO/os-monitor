@@ -16,5 +16,11 @@ log = "0.4.25"
 env_logger = "0.11.6"
 tokio = { version = "1", features = ["sync"] }
 
+# Linux-specific dependencies
+[target.'cfg(target_os = "linux")'.dependencies]
+x11 = "2.21"
+evdev = "0.12"
+sysinfo = "0.30"
+
 [build-dependencies]
 cc = "1.0"

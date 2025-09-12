@@ -165,5 +165,17 @@ fn main() {
         // Tell Cargo to rerun if our source changes
         println!("cargo:rerun-if-changed={}", source_path.display());
         println!("cargo:warning=Build script completed successfully");
+    } else if target_os == "linux" {
+        println!("cargo:info=Building for Linux...");
+        
+        // Link X11 libraries
+        println!("cargo:rustc-link-lib=X11");
+        println!("cargo:rustc-link-lib=Xext");
+        
+        // Add common library search paths
+        println!("cargo:rustc-link-search=native=/usr/lib");
+        println!("cargo:rustc-link-search=native=/usr/lib/x86_64-linux-gnu");
+        
+        println!("cargo:warning=Linux build script completed successfully");
     }
 }
