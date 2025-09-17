@@ -1,5 +1,6 @@
 mod bindings;
 mod blocking;
+mod browser;
 mod error;
 pub mod event;
 mod platform;
