@@ -1,4 +1,3 @@
-use crate::browser::create_browser_client;
 use crate::{Monitor, MonitorError, WindowEvent};
 use evdev::{Device, EventType};
 #[allow(deprecated)]
@@ -41,14 +40,11 @@ pub fn platform_detect_changes() -> Result<(), MonitorError> {
 
             if last_focused_window.map_or(true, |last_id| last_id != window_id) {
                 if let Some(monitor) = MONITOR.lock().unwrap().clone() {
-                    // Try to get URL if this is a browser
-                    let url = get_browser_url(&app_name);
-
                     monitor.send_window_event(WindowEvent {
                         app_name,
                         window_title: String::new(),
                         bundle_id: None, // .desktop files on Linux (?)
-                        url,
+                        url: None,
                         platform: crate::Platform::Linux,
                     })
                 }
@@ -354,24 +350,3 @@ fn initialize_input_monitoring() {
     log::info!("Input monitoring initialized with {} devices", device_count);
 }
 
-fn get_browser_url(app_name: &str) -> Option<String> {
-    let client = create_browser_client(app_name)?;
-
-    if !client.is_available() {
-        log::debug!("Browser {} not available for URL extraction", app_name);
-        return None;
-    }
-
-    match client.get_active_tab_url() {
-        Ok(url) => {
-            if let Some(ref url_str) = url {
-                log::debug!("Extracted URL from {}: {}", app_name, url_str);
-            }
-            url
-        }
-        Err(e) => {
-            log::debug!("Failed to get URL from {}: {}", app_name, e);
-            None
-        }
-    }
-}
