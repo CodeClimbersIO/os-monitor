@@ -2,6 +2,7 @@
 pub enum MonitorError {
     AlreadyRunning,
     NotRunning,
+    PermissionDenied(String),
     PlatformError(String),
     ForeignException(String),
     Other(String),
@@ -12,6 +13,7 @@ impl std::fmt::Display for MonitorError {
         match self {
             MonitorError::AlreadyRunning => write!(f, "Monitor is already running"),
             MonitorError::NotRunning => write!(f, "Monitor is not running"),
+            MonitorError::PermissionDenied(msg) => write!(f, "Permission denied: {}", msg),
             MonitorError::PlatformError(msg) => write!(f, "Platform error: {}", msg),
             MonitorError::ForeignException(msg) => write!(f, "Foreign exception: {}", msg),
             MonitorError::Other(msg) => write!(f, "Other error: {}", msg),
