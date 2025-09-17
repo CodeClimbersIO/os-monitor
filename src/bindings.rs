@@ -1,6 +1,7 @@
 use std::ffi::c_char;
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct RawWindowTitle {
     pub app_name: *const c_char,
     pub window_title: *const c_char,
@@ -8,6 +9,7 @@ pub struct RawWindowTitle {
     pub url: *const c_char,
 }
 
+#[allow(dead_code)]
 impl RawWindowTitle {
     pub fn get_url(&self) -> Option<String> {
         if self.url.is_null() {
