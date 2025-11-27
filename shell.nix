@@ -3,29 +3,26 @@
 }:
 
 pkgs.mkShell {
-  # Development dependencies
+  nativeBuildInputs = with pkgs; [
+    pkg-config
+    clang
+  ];
+
   buildInputs = with pkgs; [
-    # Rust toolchain
     rustc
     cargo
     rustfmt
     clippy
     rust-analyzer
 
-    # X11 development libraries
-    xorg.libX11.dev
-    xorg.libXext.dev
-    xorg.libXcursor.dev
-    xorg.libXi.dev
-    xorg.libXrandr.dev
-
-    # Build tools
-    pkg-config
-    clang
+    xorg.libX11
+    xorg.libXext
+    xorg.libXcursor
+    xorg.libXi
+    xorg.libXrandr
   ];
 
-  # Set up library paths for dynamic linking
-  LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [
+  LIBRARY_PATH = pkgs.lib.makeLibraryPath [
     pkgs.xorg.libX11
     pkgs.xorg.libXext
     pkgs.xorg.libXcursor
@@ -33,22 +30,7 @@ pkgs.mkShell {
     pkgs.xorg.libXrandr
   ];
 
-  PKG_CONFIG_PATH = pkgs.lib.makeSearchPath "lib/pkgconfig" [
-    pkgs.xorg.libX11.dev
-    pkgs.xorg.libXext.dev
-    pkgs.xorg.libXcursor.dev
-    pkgs.xorg.libXi.dev
-    pkgs.xorg.libXrandr.dev
-  ];
-
-  RUSTFLAGS = "-L ${pkgs.xorg.libX11}/lib -L ${pkgs.xorg.libXext}/lib";
-
-  # Welcome message when entering the shell
   shellHook = ''
-    echo "🦀 Rust + X11 development environment loaded"
-    echo "📦 Available tools: rustc, cargo, clippy, rust-analyzer"
-    echo "🔗 X11 libraries configured for linking"
-    rustc --version
-    cargo --version
+    echo "Rust + X11 development environment loaded"
   '';
 }

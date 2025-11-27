@@ -1,0 +1,5 @@
+[target.x86_64-unknown-linux-gnu]
+rustflags = [
+    "-L", "/nix/store/ja09m2gfni7pqk4bsrhjb8y9cq74rspp-libx11-1.8.12/lib",
+    "-L", "/nix/store/55071y2xjibw8f317scvlg788w31k7k8-libxext-1.3.6/lib",
+]
