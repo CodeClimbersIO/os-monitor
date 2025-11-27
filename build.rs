@@ -167,15 +167,11 @@ fn main() {
         println!("cargo:warning=Build script completed successfully");
     } else if target_os == "linux" {
         println!("cargo:info=Building for Linux...");
-        
-        // Link X11 libraries
+
+        // Link X11 libraries (search paths set via .cargo/config.toml for NixOS)
         println!("cargo:rustc-link-lib=X11");
         println!("cargo:rustc-link-lib=Xext");
-        
-        // Add common library search paths
-        println!("cargo:rustc-link-search=native=/usr/lib");
-        println!("cargo:rustc-link-search=native=/usr/lib/x86_64-linux-gnu");
-        
+
         println!("cargo:warning=Linux build script completed successfully");
     }
 }
