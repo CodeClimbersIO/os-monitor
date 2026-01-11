@@ -214,9 +214,6 @@ fn detect_input_activity() -> (bool, bool) {
         return (false, false);
     }
 
-    log::debug!("Epoll found {} devices with events", num_events);
-
-    // Get devices map
     let mut devices = match OPENED_DEVICES.lock() {
         Ok(guard) => guard,
         Err(_) => {
@@ -239,8 +236,7 @@ fn detect_input_activity() -> (bool, bool) {
 
         let device_events = match device.fetch_events() {
             Ok(events) => events,
-            Err(e) => {
-                log::debug!("Failed to fetch events from device {}: {}", fd, e);
+            Err(_) => {
                 continue;
             }
         };
@@ -249,11 +245,10 @@ fn detect_input_activity() -> (bool, bool) {
             match ev.event_type() {
                 EventType::KEY => {
                     has_keyboard_activity = true;
-                    log::debug!("Keyboard event detected");
                 }
+
                 EventType::RELATIVE | EventType::ABSOLUTE => {
                     has_mouse_activity = true;
-                    log::debug!("Mouse event detected");
                 }
                 _ => {}
             }
@@ -349,4 +344,3 @@ fn initialize_input_monitoring() {
 
     log::info!("Input monitoring initialized with {} devices", device_count);
 }
-
