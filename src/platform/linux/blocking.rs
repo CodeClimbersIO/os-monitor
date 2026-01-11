@@ -1,21 +1,52 @@
+use crate::blocking_state::{set_blocking_state, clear_blocking_state};
 use crate::BlockableItem;
 
 pub fn platform_start_blocking(
-    _blocked_apps: &mut Vec<BlockableItem>,
-    _redirect_url: &str,
-    _blocklist_mode: bool,
+    blocked_apps: &mut Vec<BlockableItem>,
+    redirect_url: &str,
+    blocklist_mode: bool,
 ) -> bool {
-    // TODO: Implement application and website blocking for Linux
-    // - Set up process monitoring for blocked applications
-    // - Configure browser blocking (Chrome DevTools Protocol)
-    // - Store blocking configuration
-    log::warn!("platform_start_blocking not yet implemented for Linux");
-    true // Assume success for now
+    let websites: Vec<String> = blocked_apps
+        .iter()
+        .filter(|app| app.is_browser)
+        .map(|app| app.app_external_id.clone())
+        .collect();
+
+    let apps: Vec<String> = blocked_apps
+        .iter()
+        .filter(|app| !app.is_browser)
+        .map(|app| app.app_external_id.clone())
+        .collect();
+
+    // Store blocking config in shared state for other modules to check against
+    set_blocking_state(
+        websites.clone(),
+        apps.clone(),
+        redirect_url.to_string(),
+        blocklist_mode,
+    );
+
+    log::info!("Linux blocking started:");
+    log::info!("  Websites: {:?}", websites);
+    log::info!("  Redirect URL: {}", redirect_url);
+    log::info!("  Mode: {}", if blocklist_mode { "blocklist" } else { "allowlist" });
+
+    // Website blocking happens reactively in browser/mod.rs when URLs are reported
+    // via WebSocket from the browser extension. handle_url_change() checks against
+    // the blocking state we just set above.
+
+    // TODO: App blocking requires focus detection + process termination
+    // Use sysinfo crate to enumerate processes and kill by name/pid
+    if !apps.is_empty() {
+        log::warn!("App blocking not yet implemented: {:?}", apps);
+    }
+
+    true
 }
 
 pub fn platform_stop_blocking() {
-    // TODO: Disable all blocking functionality
-    log::warn!("platform_stop_blocking not yet implemented for Linux");
+    log::info!("Linux blocking stopped");
+    clear_blocking_state();
 }
 
 pub fn platform_get_application_icon_data(_bundle_id: &str) -> Option<String> {
