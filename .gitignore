@@ -12,3 +12,6 @@ CLAUDE.md
 blocklist.json
 
 .direnv
+
+# vm stuff
+.qcow2
