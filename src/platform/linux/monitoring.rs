@@ -11,10 +11,10 @@ use std::os::unix::io::AsRawFd;
 use std::sync::{Arc, Mutex};
 
 use super::focus::{self, FocusBackend};
-use super::app_blocker;
+use super::blocking;
 
 static LAST_FOCUSED_WINDOW_ID: Lazy<Mutex<Option<u64>>> = Lazy::new(|| Mutex::new(None));
-static MONITOR: Lazy<Mutex<Option<Arc<Monitor>>>> = Lazy::new(|| Mutex::new(None));
+pub static MONITOR: Lazy<Mutex<Option<Arc<Monitor>>>> = Lazy::new(|| Mutex::new(None));
 static OPENED_DEVICES: Lazy<Mutex<HashMap<i32, Device>>> = Lazy::new(|| Mutex::new(HashMap::new()));
 static EPOLL_FD: Lazy<Mutex<Option<i32>>> = Lazy::new(|| Mutex::new(None));
 static FOCUS_BACKEND: Lazy<Mutex<Option<Box<dyn FocusBackend>>>> = Lazy::new(|| Mutex::new(None));
@@ -53,8 +53,11 @@ pub fn platform_detect_changes() -> Result<(), MonitorError> {
             let mut last_id = LAST_FOCUSED_WINDOW_ID.lock().unwrap();
 
             if last_id.map_or(true, |id| id != focused.id) {
-                // Window focus changed - check if app should be blocked
-                app_blocker::check_and_block_focused_app(backend.as_ref());
+                // Window focus changed - check if app should be blocked (like macOS)
+                if blocking::is_blocked(&focused.app_name) {
+                    log::info!("App is blocked, closing app: {}", focused.app_name);
+                    blocking::close_app(&focused.app_name);
+                }
 
                 // Send window event
                 if let Some(monitor) = MONITOR.lock().unwrap().clone() {
