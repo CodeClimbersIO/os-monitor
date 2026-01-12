@@ -11,6 +11,8 @@
       supportedSystems = [
         "x86_64-linux"
         "aarch64-linux"
+        "x86_64-darwin"
+        "aarch64-darwin"
       ];
       forAllSystems = nixpkgs.lib.genAttrs supportedSystems;
     in
@@ -112,6 +114,8 @@
         system:
         let
           pkgs = nixpkgs.legacyPackages.${system};
+          isLinux = pkgs.stdenv.isLinux;
+          isDarwin = pkgs.stdenv.isDarwin;
         in
         {
           default = pkgs.mkShell {
@@ -126,30 +130,37 @@
               rustfmt
               clippy
               rust-analyzer
-
+            ] ++ pkgs.lib.optionals isLinux [
+              # X11 libs only needed on Linux
               xorg.libX11
               xorg.libXext
               xorg.libXcursor
               xorg.libXi
               xorg.libXrandr
+            ] ++ pkgs.lib.optionals isDarwin [
+              # macOS frameworks
+              darwin.apple_sdk.frameworks.Cocoa
+              darwin.apple_sdk.frameworks.Security
             ];
 
-            LIBRARY_PATH = pkgs.lib.makeLibraryPath [
+            LIBRARY_PATH = pkgs.lib.optionalString isLinux (pkgs.lib.makeLibraryPath [
               pkgs.xorg.libX11
               pkgs.xorg.libXext
               pkgs.xorg.libXcursor
               pkgs.xorg.libXi
               pkgs.xorg.libXrandr
-            ];
+            ]);
 
             shellHook = ''
-              echo "Rust + X11 development environment loaded"
-
-              # Start the GNOME X11 test VM
+              echo "Rust development environment loaded (${system})"
+            '' + pkgs.lib.optionalString isLinux ''
+              # Start the GNOME X11 test VM (Linux only)
               svm() {
                 echo "Starting GNOME X11 VM..."
                 nix run .#vm-gnome-x11
               }
+            '' + pkgs.lib.optionalString isDarwin ''
+              echo "Note: VM testing requires Linux. Use a remote Linux machine or cloud VM."
             '';
           };
         }
