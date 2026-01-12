@@ -16,25 +16,56 @@ fn has_website_url(blocked_apps: &Vec<BlockableItem>) -> bool {
 /// System apps that should never be blocked (Linux equivalents of macOS exceptions)
 fn get_system_exceptions() -> Vec<BlockableItem> {
     vec![
-        // File managers
+        // File managers - GNOME
         BlockableItem::new("nautilus".to_string(), false),
+        BlockableItem::new("org.gnome.Nautilus".to_string(), false),
+        // File managers - KDE
         BlockableItem::new("dolphin".to_string(), false),
+        BlockableItem::new("org.kde.dolphin".to_string(), false),
+        // File managers - XFCE/other
         BlockableItem::new("thunar".to_string(), false),
         BlockableItem::new("nemo".to_string(), false),
         BlockableItem::new("pcmanfm".to_string(), false),
-        // Terminals
+        BlockableItem::new("pcmanfm-qt".to_string(), false),
+        BlockableItem::new("caja".to_string(), false),
+        // Terminals - GNOME
         BlockableItem::new("gnome-terminal".to_string(), false),
+        BlockableItem::new("org.gnome.Terminal".to_string(), false),
+        BlockableItem::new("gnome-console".to_string(), false),
+        BlockableItem::new("org.gnome.Console".to_string(), false),
+        // Terminals - KDE
         BlockableItem::new("konsole".to_string(), false),
+        BlockableItem::new("org.kde.konsole".to_string(), false),
+        // Terminals - other
         BlockableItem::new("xterm".to_string(), false),
         BlockableItem::new("alacritty".to_string(), false),
         BlockableItem::new("kitty".to_string(), false),
         BlockableItem::new("foot".to_string(), false),
         BlockableItem::new("wezterm".to_string(), false),
-        // System utilities
+        BlockableItem::new("tilix".to_string(), false),
+        BlockableItem::new("terminator".to_string(), false),
+        BlockableItem::new("urxvt".to_string(), false),
+        BlockableItem::new("st".to_string(), false),
+        // System settings - GNOME
         BlockableItem::new("gnome-control-center".to_string(), false),
-        BlockableItem::new("systemsettings".to_string(), false),
+        BlockableItem::new("org.gnome.Settings".to_string(), false),
         BlockableItem::new("gnome-system-monitor".to_string(), false),
+        BlockableItem::new("org.gnome.SystemMonitor".to_string(), false),
+        // System settings - KDE
+        BlockableItem::new("systemsettings".to_string(), false),
+        BlockableItem::new("systemsettings5".to_string(), false),
+        BlockableItem::new("org.kde.systemsettings".to_string(), false),
         BlockableItem::new("ksysguard".to_string(), false),
+        BlockableItem::new("plasma-systemmonitor".to_string(), false),
+        BlockableItem::new("org.kde.plasma-systemmonitor".to_string(), false),
+        // System settings - XFCE
+        BlockableItem::new("xfce4-settings-manager".to_string(), false),
+        BlockableItem::new("xfce4-taskmanager".to_string(), false),
+        // Launchers/runners
+        BlockableItem::new("rofi".to_string(), false),
+        BlockableItem::new("wofi".to_string(), false),
+        BlockableItem::new("dmenu".to_string(), false),
+        BlockableItem::new("krunner".to_string(), false),
         // Ebb itself
         BlockableItem::new("ebb".to_string(), false),
         BlockableItem::new("ebb.cool".to_string(), true),
@@ -45,14 +76,30 @@ fn get_system_exceptions() -> Vec<BlockableItem> {
 /// (we block websites via extension, not by killing the browser)
 fn get_browser_exceptions() -> Vec<BlockableItem> {
     vec![
+        // Chrome variants
         BlockableItem::new("google-chrome".to_string(), false),
+        BlockableItem::new("google-chrome-stable".to_string(), false),
+        BlockableItem::new("chrome".to_string(), false),
         BlockableItem::new("chromium".to_string(), false),
+        BlockableItem::new("chromium-browser".to_string(), false),
+        // Firefox
         BlockableItem::new("firefox".to_string(), false),
+        BlockableItem::new("firefox-esr".to_string(), false),
+        BlockableItem::new("librewolf".to_string(), false),
+        // Other Chromium-based
         BlockableItem::new("brave".to_string(), false),
+        BlockableItem::new("brave-browser".to_string(), false),
         BlockableItem::new("vivaldi".to_string(), false),
+        BlockableItem::new("vivaldi-stable".to_string(), false),
         BlockableItem::new("opera".to_string(), false),
         BlockableItem::new("microsoft-edge".to_string(), false),
+        BlockableItem::new("microsoft-edge-stable".to_string(), false),
+        // GNOME/GTK browsers
         BlockableItem::new("epiphany".to_string(), false),
+        BlockableItem::new("org.gnome.Epiphany".to_string(), false),
+        // KDE browser
+        BlockableItem::new("falkon".to_string(), false),
+        BlockableItem::new("org.kde.falkon".to_string(), false),
     ]
 }
 
@@ -69,8 +116,8 @@ fn get_exceptions(has_website_url: bool, blocklist_mode: bool) -> Vec<BlockableI
     exceptions
 }
 
-/// Check if an app should be blocked based on current blocking state
-pub fn is_blocked(app_name: &str) -> bool {
+/// Check if a process name should be blocked based on current blocking state
+fn should_block_process(process_name: &str) -> bool {
     let state = match BLOCKING_STATE.lock() {
         Ok(s) => s,
         Err(_) => return false,
@@ -80,60 +127,67 @@ pub fn is_blocked(app_name: &str) -> bool {
         return false;
     }
 
-    let app_lower = app_name.to_lowercase();
+    let name_lower = process_name.to_lowercase();
 
-    // Case-insensitive exact match (like macOS bundle ID matching)
-    let app_in_list = state.blocked_apps.iter().any(|blocked| {
-        blocked.to_lowercase() == app_lower
+    // Case-insensitive exact match
+    let in_list = state.blocked_apps.iter().any(|blocked| {
+        blocked.to_lowercase() == name_lower
     });
 
     if state.blocklist_mode {
-        app_in_list // Block if in blocklist
+        in_list // Block if in blocklist
     } else {
-        !app_in_list // Block if NOT in allowlist
+        !in_list // Block if NOT in allowlist
     }
 }
 
-/// Terminate a blocked app by name and send BlockedAppEvent
-/// Returns true if the app was found and terminated
-pub fn close_app(app_name: &str) -> bool {
+/// Scan all running processes and kill any that are blocked.
+/// Called every polling cycle - works universally across all display servers.
+pub fn kill_blocked_processes() {
+    let state = match BLOCKING_STATE.lock() {
+        Ok(s) => s,
+        Err(_) => return,
+    };
+
+    if !state.active || state.blocked_apps.is_empty() {
+        return;
+    }
+    drop(state); // Release lock before potentially slow process enumeration
+
     let mut system = System::new_all();
     system.refresh_processes();
 
-    let app_lower = app_name.to_lowercase();
-    let mut killed = false;
+    let mut killed_apps: Vec<BlockedApp> = Vec::new();
 
     for (pid, process) in system.processes() {
-        let process_name = process.name().to_lowercase();
+        let process_name = process.name().to_string();
 
-        // Exact match on process name (like macOS bundle ID matching)
-        if process_name == app_lower {
-            log::info!("Terminating blocked application: {} (PID {})", process.name(), pid);
+        if should_block_process(&process_name) {
+            log::info!("Terminating blocked application: {} (PID {})", process_name, pid);
 
             if process.kill_with(Signal::Term).unwrap_or(false) {
-                killed = true;
-
-                // Send BlockedAppEvent (like macOS callback)
-                if let Ok(monitor_guard) = MONITOR.lock() {
-                    if let Some(monitor) = monitor_guard.as_ref() {
-                        monitor.send_app_blocked_event(BlockedAppEvent {
-                            blocked_apps: vec![BlockedApp {
-                                app_name: process.name().to_string(),
-                                app_external_id: process.name().to_string(),
-                                is_site: false,
-                            }],
-                        });
-                    }
-                }
-
-                log::info!("Successfully terminated blocked application: {}", process.name());
+                killed_apps.push(BlockedApp {
+                    app_name: process_name.clone(),
+                    app_external_id: process_name.clone(),
+                    is_site: false,
+                });
+                log::info!("Successfully terminated: {}", process_name);
             } else {
-                log::warn!("Failed to terminate process {} (PID {})", process.name(), pid);
+                log::warn!("Failed to terminate: {} (PID {})", process_name, pid);
             }
         }
     }
 
-    killed
+    // Send BlockedAppEvent for all killed apps (batched like macOS)
+    if !killed_apps.is_empty() {
+        if let Ok(monitor_guard) = MONITOR.lock() {
+            if let Some(monitor) = monitor_guard.as_ref() {
+                monitor.send_app_blocked_event(BlockedAppEvent {
+                    blocked_apps: killed_apps,
+                });
+            }
+        }
+    }
 }
 
 pub fn platform_start_blocking(

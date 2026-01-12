@@ -46,20 +46,19 @@ pub fn platform_detect_changes() -> Result<(), MonitorError> {
         ));
     }
 
-    // Use focus backend to detect window changes and check for blocked apps
+    // Kill any blocked apps that are running (process-based, not focus-based)
+    // This is more aggressive than macOS but works universally across all
+    // display servers including native Wayland
+    blocking::kill_blocked_processes();
+
+    // Use focus backend to detect window changes for monitoring/events
     let backend_guard = FOCUS_BACKEND.lock().unwrap();
     if let Some(ref backend) = *backend_guard {
         if let Some(focused) = backend.get_focused_window() {
             let mut last_id = LAST_FOCUSED_WINDOW_ID.lock().unwrap();
 
             if last_id.map_or(true, |id| id != focused.id) {
-                // Window focus changed - check if app should be blocked (like macOS)
-                if blocking::is_blocked(&focused.app_name) {
-                    log::info!("App is blocked, closing app: {}", focused.app_name);
-                    blocking::close_app(&focused.app_name);
-                }
-
-                // Send window event
+                // Send window event for activity monitoring
                 if let Some(monitor) = MONITOR.lock().unwrap().clone() {
                     monitor.send_window_event(WindowEvent {
                         app_name: focused.app_name,
