@@ -89,6 +89,9 @@
                   os-monitor # Our monitoring app
                 ];
 
+                # Copy blocklist config to /etc
+                environment.etc."os-monitor/blocklist.json".text = builtins.readFile ./blocklist.json;
+
                 # Auto-start os-monitor as a system service (needs root for /dev/input)
                 systemd.services.os-monitor = {
                   description = "OS Monitor - Activity and blocking service";
@@ -101,6 +104,8 @@
                     Environment = "RUST_LOG=info";
                     # Run as root (required for /dev/input access)
                     User = "root";
+                    # Run from /etc/os-monitor so it can find blocklist.json
+                    WorkingDirectory = "/etc/os-monitor";
                   };
                 };
 

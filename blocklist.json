@@ -1,0 +1,14 @@
+[
+  {
+    "app_external_id": "mousepad",
+    "is_browser": false
+  },
+  {
+    "app_external_id": "gnome-calculator",
+    "is_browser": false
+  },
+  {
+    "app_external_id": "facebook.com",
+    "is_browser": true
+  }
+]
