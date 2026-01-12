@@ -152,6 +152,16 @@ pub fn kill_blocked_processes() {
     if !state.active || state.blocked_apps.is_empty() {
         return;
     }
+
+    // Debug: Log blocking state once per cycle
+    static LOGGED_STATE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+    if !LOGGED_STATE.load(std::sync::atomic::Ordering::Relaxed) {
+        log::info!("=== Blocking Active ===");
+        log::info!("Mode: {}", if state.blocklist_mode { "blocklist" } else { "allowlist" });
+        log::info!("Blocked apps: {:?}", state.blocked_apps);
+        LOGGED_STATE.store(true, std::sync::atomic::Ordering::Relaxed);
+    }
+
     drop(state); // Release lock before potentially slow process enumeration
 
     let mut system = System::new_all();
@@ -159,11 +169,22 @@ pub fn kill_blocked_processes() {
 
     let mut killed_apps: Vec<BlockedApp> = Vec::new();
 
+    // Debug: Log all process names once to see what we're working with
+    static LOGGED_PROCESSES: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+    if !LOGGED_PROCESSES.load(std::sync::atomic::Ordering::Relaxed) {
+        log::info!("=== All Running Processes ===");
+        for (pid, proc) in system.processes() {
+            log::info!("PID {}: {}", pid, proc.name());
+        }
+        log::info!("=== End Process List ===");
+        LOGGED_PROCESSES.store(true, std::sync::atomic::Ordering::Relaxed);
+    }
+
     for (pid, process) in system.processes() {
         let process_name = process.name().to_string();
 
         if should_block_process(&process_name) {
-            log::info!("Terminating blocked application: {} (PID {})", process_name, pid);
+            log::info!("🚫 Terminating blocked application: {} (PID {})", process_name, pid);
 
             if process.kill_with(Signal::Term).unwrap_or(false) {
                 killed_apps.push(BlockedApp {
@@ -171,9 +192,9 @@ pub fn kill_blocked_processes() {
                     app_external_id: process_name.clone(),
                     is_site: false,
                 });
-                log::info!("Successfully terminated: {}", process_name);
+                log::info!("✅ Successfully terminated: {}", process_name);
             } else {
-                log::warn!("Failed to terminate: {} (PID {})", process_name, pid);
+                log::warn!("❌ Failed to terminate: {} (PID {})", process_name, pid);
             }
         }
     }
