@@ -28,6 +28,39 @@
           modules = [
             (
               { pkgs, modulesPath, ... }:
+              let
+                # Build os-monitor from the current source
+                os-monitor = pkgs.rustPlatform.buildRustPackage {
+                  pname = "os-monitor";
+                  version = "0.4.9";
+                  src = ./.;
+
+                  cargoLock = {
+                    lockFile = ./Cargo.lock;
+                  };
+
+                  nativeBuildInputs = with pkgs; [
+                    pkg-config
+                    clang
+                  ];
+
+                  buildInputs = with pkgs; [
+                    xorg.libX11
+                    xorg.libXext
+                    xorg.libXcursor
+                    xorg.libXi
+                    xorg.libXrandr
+                  ];
+
+                  LIBRARY_PATH = pkgs.lib.makeLibraryPath [
+                    pkgs.xorg.libX11
+                    pkgs.xorg.libXext
+                    pkgs.xorg.libXcursor
+                    pkgs.xorg.libXi
+                    pkgs.xorg.libXrandr
+                  ];
+                };
+              in
               {
                 imports = [ (modulesPath + "/virtualisation/qemu-vm.nix") ];
 
@@ -51,6 +84,35 @@
                   vim
                   git
                   firefox
+                  mousepad # Simple text editor for blocking tests
+                  galculator # Simple calculator for multi-app blocking tests
+                  os-monitor # Our monitoring app
+                ];
+
+                # Auto-start os-monitor with sudo for the test user
+                systemd.user.services.os-monitor = {
+                  description = "OS Monitor - Activity and blocking service";
+                  wantedBy = [ "default.target" ];
+                  after = [ "graphical-session.target" ];
+                  serviceConfig = {
+                    ExecStart = "${pkgs.sudo}/bin/sudo ${os-monitor}/bin/os-monitor";
+                    Restart = "always";
+                    RestartSec = "5s";
+                    Environment = "RUST_LOG=info";
+                  };
+                };
+
+                # Allow test user to run os-monitor without password
+                security.sudo.extraRules = [
+                  {
+                    users = [ "test" ];
+                    commands = [
+                      {
+                        command = "${os-monitor}/bin/os-monitor";
+                        options = [ "NOPASSWD" ];
+                      }
+                    ];
+                  }
                 ];
 
                 # Test user (password: test)
