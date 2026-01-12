@@ -1,5 +1,7 @@
+mod app_blocker;
 mod blocking;
 mod events;
+mod focus;
 mod monitoring;
 mod ui;
 

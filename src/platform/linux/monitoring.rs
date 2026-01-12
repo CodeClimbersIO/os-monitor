@@ -6,20 +6,32 @@ use nix::sys::epoll::{
 };
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
-use std::ffi::CStr;
 use std::fs;
 use std::os::unix::io::AsRawFd;
-use std::ptr;
 use std::sync::{Arc, Mutex};
-use x11::xlib::*;
 
-static LAST_FOCUSED_WINDOW: Lazy<Mutex<Option<Window>>> = Lazy::new(|| Mutex::new(None));
+use super::focus::{self, FocusBackend};
+use super::app_blocker;
+
+static LAST_FOCUSED_WINDOW_ID: Lazy<Mutex<Option<u64>>> = Lazy::new(|| Mutex::new(None));
 static MONITOR: Lazy<Mutex<Option<Arc<Monitor>>>> = Lazy::new(|| Mutex::new(None));
 static OPENED_DEVICES: Lazy<Mutex<HashMap<i32, Device>>> = Lazy::new(|| Mutex::new(HashMap::new()));
 static EPOLL_FD: Lazy<Mutex<Option<i32>>> = Lazy::new(|| Mutex::new(None));
+static FOCUS_BACKEND: Lazy<Mutex<Option<Box<dyn FocusBackend>>>> = Lazy::new(|| Mutex::new(None));
 
 pub fn platform_start_monitoring(monitor: Arc<Monitor>) {
     *MONITOR.lock().unwrap() = Some(monitor);
+
+    // Initialize focus backend based on detected display server
+    {
+        let mut backend = FOCUS_BACKEND.lock().unwrap();
+        if backend.is_none() {
+            *backend = focus::create_focus_backend();
+            if let Some(ref b) = *backend {
+                log::info!("Using {} focus backend", b.name());
+            }
+        }
+    }
 
     initialize_input_monitoring();
 
@@ -34,27 +46,34 @@ pub fn platform_detect_changes() -> Result<(), MonitorError> {
         ));
     }
 
-    match detect_focused_window() {
-        Ok((window_id, app_name)) => {
-            let mut last_focused_window = LAST_FOCUSED_WINDOW.lock().unwrap();
+    // Use focus backend to detect window changes and check for blocked apps
+    let backend_guard = FOCUS_BACKEND.lock().unwrap();
+    if let Some(ref backend) = *backend_guard {
+        if let Some(focused) = backend.get_focused_window() {
+            let mut last_id = LAST_FOCUSED_WINDOW_ID.lock().unwrap();
 
-            if last_focused_window.map_or(true, |last_id| last_id != window_id) {
+            if last_id.map_or(true, |id| id != focused.id) {
+                // Window focus changed - check if app should be blocked
+                app_blocker::check_and_block_focused_app(backend.as_ref());
+
+                // Send window event
                 if let Some(monitor) = MONITOR.lock().unwrap().clone() {
                     monitor.send_window_event(WindowEvent {
-                        app_name,
-                        window_title: String::new(),
-                        bundle_id: None, // .desktop files on Linux (?)
+                        app_name: focused.app_name,
+                        window_title: focused.title,
+                        bundle_id: None,
                         url: None,
                         platform: crate::Platform::Linux,
-                    })
+                    });
                 }
 
-                *last_focused_window = Some(window_id);
+                *last_id = Some(focused.id);
             }
         }
-        Err(e) => log::error!("Failed to detect focused window: {}", e),
     }
+    drop(backend_guard);
 
+    // Detect input activity
     let (has_keyboard_activity, has_mouse_activity) = detect_input_activity();
 
     if has_keyboard_activity || has_mouse_activity {
@@ -91,96 +110,6 @@ pub fn platform_request_accessibility_permissions() -> bool {
     log::error!("  sudo ./target/release/os-monitor");
 
     false // Cannot automatically grant root permissions
-}
-
-fn detect_focused_window() -> Result<(Window, String), Box<dyn std::error::Error>> {
-    unsafe {
-        let display = XOpenDisplay(ptr::null());
-        if display.is_null() {
-            return Err("Failed to open X11 display".into());
-        }
-
-        let mut focus_window: Window = 0;
-        let mut revert_to: i32 = 0;
-
-        XGetInputFocus(display, &mut focus_window, &mut revert_to);
-
-        let title = get_window_class(display, focus_window)
-            .or_else(|| get_window_title(display, focus_window))
-            .or_else(|| get_parent_window_title(display, focus_window))
-            .unwrap_or_else(|| "Unknown".to_string());
-
-        XCloseDisplay(display);
-
-        Ok((focus_window, title))
-    }
-}
-
-unsafe fn get_window_title(display: *mut Display, window: Window) -> Option<String> {
-    let mut window_name: *mut i8 = ptr::null_mut();
-    let status = XFetchName(display, window, &mut window_name);
-
-    if status != 0 && !window_name.is_null() {
-        let c_str = CStr::from_ptr(window_name);
-        let title = c_str.to_string_lossy().to_string();
-
-        XFree(window_name as *mut _);
-
-        if !title.is_empty() {
-            return Some(title);
-        }
-    }
-
-    None
-}
-
-unsafe fn get_parent_window_title(display: *mut Display, window: Window) -> Option<String> {
-    let mut root: Window = 0;
-    let mut parent: Window = 0;
-    let mut children: *mut Window = ptr::null_mut();
-    let mut nchildren: u32 = 0;
-
-    let status = XQueryTree(
-        display,
-        window,
-        &mut root,
-        &mut parent,
-        &mut children,
-        &mut nchildren,
-    );
-
-    if status != 0 && parent != root && parent != 0 {
-        if !children.is_null() {
-            XFree(children as *mut _);
-        }
-        return get_window_title(display, parent);
-    }
-
-    if !children.is_null() {
-        XFree(children as *mut _);
-    }
-    None
-}
-
-unsafe fn get_window_class(display: *mut Display, window: Window) -> Option<String> {
-    let mut class_hint = std::mem::zeroed::<XClassHint>();
-
-    let status_code = XGetClassHint(display, window, &mut class_hint);
-
-    if status_code == 0 || class_hint.res_class.is_null() {
-        return None;
-    }
-
-    let c_str = CStr::from_ptr(class_hint.res_class);
-    let class_name = c_str.to_string_lossy().to_string();
-
-    XFree(class_hint.res_class as *mut _);
-
-    if !class_hint.res_name.is_null() {
-        XFree(class_hint.res_name as *mut _);
-    }
-
-    Some(class_name)
 }
 
 fn detect_input_activity() -> (bool, bool) {
