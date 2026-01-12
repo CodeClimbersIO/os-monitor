@@ -14,4 +14,4 @@ blocklist.json
 .direnv
 
 # vm stuff
-.qcow2
+*.qcow2
