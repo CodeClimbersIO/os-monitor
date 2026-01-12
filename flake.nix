@@ -85,7 +85,7 @@
                   git
                   firefox
                   mousepad # Simple text editor for blocking tests
-                  galculator # Simple calculator for multi-app blocking tests
+                  gnome-calculator # Simple calculator for multi-app blocking tests
                   os-monitor # Our monitoring app
                 ];
 
@@ -129,7 +129,7 @@
                 security.sudo.wheelNeedsPassword = false;
 
                 # Auto-login for convenience
-                services.xserver.displayManager.autoLogin = {
+                services.displayManager.autoLogin = {
                   enable = true;
                   user = "test";
                 };
