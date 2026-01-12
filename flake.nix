@@ -19,15 +19,15 @@
     {
       #
       # === VM for Testing ===
-      # Run with: nix run .#vm-gnome-x11
+      # Run with: nix run .#vm-x11
       # Or use the `svm` alias in the dev shell
       #
       vmConfigurations = {
-        gnome-x11 = nixpkgs.lib.nixosSystem {
+        x11 = nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
           modules = [
             (
-              { config, pkgs, lib, modulesPath, ... }:
+              { pkgs, modulesPath, ... }:
               {
                 imports = [ (modulesPath + "/virtualisation/qemu-vm.nix") ];
 
@@ -36,26 +36,15 @@
                   memorySize = 4096; # 4GB RAM
                   cores = 4;
                   diskSize = 20480; # 20GB disk
-                  qemu.options = [
-                    "-device virtio-vga-gl"
-                    "-display gtk,gl=on"
+                  forwardPorts = [
+                    { from = "host"; host.port = 2222; guest.port = 22; }
                   ];
                 };
 
-                # Use X11 (not Wayland)
+                # Use X11 with XFCE (lighter than GNOME, more reliable in VMs)
                 services.xserver.enable = true;
-                services.displayManager.gdm = {
-                  enable = true;
-                  wayland = false; # Force X11
-                };
-                services.desktopManager.gnome.enable = true;
-
-                # Exclude some heavy GNOME apps to speed up build
-                environment.gnome.excludePackages = with pkgs; [
-                  gnome-tour
-                  epiphany # web browser
-                  geary # email
-                ];
+                services.xserver.displayManager.lightdm.enable = true;
+                services.xserver.desktopManager.xfce.enable = true;
 
                 # Basic packages for testing
                 environment.systemPackages = with pkgs; [
@@ -67,24 +56,30 @@
                 # Test user (password: test)
                 users.users.test = {
                   isNormalUser = true;
-                  extraGroups = [ "wheel" "networkmanager" ];
+                  extraGroups = [
+                    "wheel"
+                    "networkmanager"
+                  ];
                   initialPassword = "test";
                 };
 
                 # Allow test user to sudo without password (for convenience)
                 security.sudo.wheelNeedsPassword = false;
 
-                # Auto-login for convenience (optional, comment out if you prefer login screen)
-                services.displayManager.autoLogin = {
+                # Auto-login for convenience
+                services.xserver.displayManager.autoLogin = {
                   enable = true;
                   user = "test";
                 };
 
                 # Networking
                 networking = {
-                  hostName = "nixos-gnome-vm";
+                  hostName = "nixos-x11-vm";
                   networkmanager.enable = true;
                 };
+
+                # SSH for backup access
+                services.openssh.enable = true;
 
                 # Enable sound
                 services.pulseaudio.enable = false;
@@ -103,7 +98,7 @@
 
       # VM package
       packages.x86_64-linux = {
-        vm-gnome-x11 = self.vmConfigurations.gnome-x11.config.system.build.vm;
+        vm-x11 = self.vmConfigurations.x11.config.system.build.vm;
       };
 
       #
@@ -124,41 +119,41 @@
               clang
             ];
 
-            buildInputs = with pkgs; [
-              rustc
-              cargo
-              rustfmt
-              clippy
-              rust-analyzer
-            ] ++ pkgs.lib.optionals isLinux [
-              # X11 libs only needed on Linux
-              xorg.libX11
-              xorg.libXext
-              xorg.libXcursor
-              xorg.libXi
-              xorg.libXrandr
-            ] ++ pkgs.lib.optionals isDarwin [
-              # macOS frameworks
-              darwin.apple_sdk.frameworks.Cocoa
-              darwin.apple_sdk.frameworks.Security
-            ];
+            buildInputs =
+              with pkgs;
+              [
+                rustc
+                cargo
+                rustfmt
+                clippy
+                rust-analyzer
+              ]
+              ++ pkgs.lib.optionals isLinux [
+                # X11 libs only needed on Linux
+                xorg.libX11
+                xorg.libXext
+                xorg.libXcursor
+                xorg.libXi
+                xorg.libXrandr
+              ]
+              ++ pkgs.lib.optionals isDarwin [
+                # macOS frameworks
+                darwin.apple_sdk.frameworks.Cocoa
+                darwin.apple_sdk.frameworks.Security
+              ];
 
-            LIBRARY_PATH = pkgs.lib.optionalString isLinux (pkgs.lib.makeLibraryPath [
-              pkgs.xorg.libX11
-              pkgs.xorg.libXext
-              pkgs.xorg.libXcursor
-              pkgs.xorg.libXi
-              pkgs.xorg.libXrandr
-            ]);
+            LIBRARY_PATH = pkgs.lib.optionalString isLinux (
+              pkgs.lib.makeLibraryPath [
+                pkgs.xorg.libX11
+                pkgs.xorg.libXext
+                pkgs.xorg.libXcursor
+                pkgs.xorg.libXi
+                pkgs.xorg.libXrandr
+              ]
+            );
 
             shellHook = ''
               echo "Rust development environment loaded (${system})"
-            '' + pkgs.lib.optionalString isLinux ''
-              # Start the GNOME X11 test VM (Linux only)
-              svm() {
-                echo "Starting GNOME X11 VM..."
-                nix run .#vm-gnome-x11
-              }
             '' + pkgs.lib.optionalString isDarwin ''
               echo "Note: VM testing requires Linux. Use a remote Linux machine or cloud VM."
             '';
