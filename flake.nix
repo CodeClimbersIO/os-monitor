@@ -89,31 +89,20 @@
                   os-monitor # Our monitoring app
                 ];
 
-                # Auto-start os-monitor with sudo for the test user
-                systemd.user.services.os-monitor = {
+                # Auto-start os-monitor as a system service (needs root for /dev/input)
+                systemd.services.os-monitor = {
                   description = "OS Monitor - Activity and blocking service";
-                  wantedBy = [ "default.target" ];
-                  after = [ "graphical-session.target" ];
+                  wantedBy = [ "multi-user.target" ];
+                  after = [ "network.target" ];
                   serviceConfig = {
-                    ExecStart = "${pkgs.sudo}/bin/sudo ${os-monitor}/bin/os-monitor";
+                    ExecStart = "${os-monitor}/bin/os-monitor";
                     Restart = "always";
                     RestartSec = "5s";
                     Environment = "RUST_LOG=info";
+                    # Run as root (required for /dev/input access)
+                    User = "root";
                   };
                 };
-
-                # Allow test user to run os-monitor without password
-                security.sudo.extraRules = [
-                  {
-                    users = [ "test" ];
-                    commands = [
-                      {
-                        command = "${os-monitor}/bin/os-monitor";
-                        options = [ "NOPASSWD" ];
-                      }
-                    ];
-                  }
-                ];
 
                 # Test user (password: test)
                 users.users.test = {
