@@ -15,3 +15,10 @@ blocklist.json
 
 # vm stuff
 *.qcow2
+
+# nix build outputs
+result
+result-*
+
+# logs
+*.log
