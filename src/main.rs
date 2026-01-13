@@ -110,20 +110,23 @@ async fn main() {
                     // Wait for browser extension to connect properly
                     println!("⏳ Waiting for browser extension to connect...");
                     let mut attempts = 0;
-                    loop {
+                    let connected = loop {
                         if is_browser_connected().await {
                             println!("✅ Browser extension connected and ready");
-                            break;
+                            break true;
                         }
                         attempts += 1;
                         if attempts > 30 {
-                            println!("ℹ️  Browser extension not connected yet (will accept connections when available)");
-                            break; // Don't return, just break to retry loop
+                            println!("ℹ️  No browser extension detected (will accept connections when available)");
+                            break false;
                         }
                         tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+                    };
+
+                    if connected {
+                        println!("📡 Listening for URL changes from browser extension...");
                     }
-                    
-                    println!("📡 Listening for URL changes from browser extension...");
+
                     // Keep the task alive to maintain the WebSocket server
                     loop {
                         tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
